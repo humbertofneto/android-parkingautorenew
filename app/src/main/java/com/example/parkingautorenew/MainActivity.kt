@@ -19,6 +19,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var clearBtn: Button
     private lateinit var infoText: TextView
     private var webView: WebView? = null
+    
+    private var currentUrl: String = ""
+    private var captureCount: Int = 0
+    private val capturedPages = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +43,14 @@ class MainActivity : AppCompatActivity() {
                 infoText.text = "URL must start with http:// or https://"
                 return@setOnClickListener
             }
+            
+            // Se a URL mudou, reseta o contador
+            if (url != currentUrl) {
+                currentUrl = url
+                captureCount = 0
+                capturedPages.clear()
+            }
+            
             infoText.text = "Loading page..."
             fetchPageInfo(url)
         }
@@ -47,6 +59,9 @@ class MainActivity : AppCompatActivity() {
             infoText.text = "Enter a URL and click GET INFO"
             webView?.destroy()
             webView = null
+            currentUrl = ""
+            captureCount = 0
+            capturedPages.clear()
         }
     }
 
@@ -88,6 +103,7 @@ class MainActivity : AppCompatActivity() {
                 const selects = Array.from(document.querySelectorAll('select'));
                 
                 const info = {
+                  page: ${captureCount + 1},
                   title: document.title,
                   url: window.location.href,
                   inputs: inputs.map(i => ({
@@ -126,9 +142,16 @@ class MainActivity : AppCompatActivity() {
     inner class PageBridge {
         @JavascriptInterface
         fun onPageInfo(json: String) {
-            Log.d("PageBridge", "Received: $json")
+            Log.d("PageBridge", "Received page ${captureCount + 1}: $json")
             runOnUiThread {
-                infoText.text = json
+                captureCount++
+                capturedPages.add(json)
+                
+                // Mostra o JSON com informação de página e total capturado
+                val headerInfo = "=== PAGE $captureCount ===\n\n"
+                val footerInfo = "\n\n[Captured pages: $captureCount]\n[Click GET INFO again to capture the next page after navigating]\n[Click CLEAR to reset]"
+                infoText.text = headerInfo + json + footerInfo
+                
                 webView?.destroy()
                 webView = null
             }
