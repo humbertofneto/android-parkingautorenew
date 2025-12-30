@@ -340,25 +340,31 @@ class ParkingAutomationManager(
                 
                 // Extrair informações da página de confirmação
                 const allText = document.body.innerText;
+                console.log('PAGE 5 FULL TEXT:', allText);
                 
                 // Buscar Start e Expiry (formato: "Dec 30, 2025 10:30 AM")
                 const startMatch = allText.match(/Start[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
                 if (startMatch) result.startTime = startMatch[1];
+                console.log('Start Match:', startMatch);
                 
                 const expiryMatch = allText.match(/Expir(?:y|es)[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
                 if (expiryMatch) result.expiryTime = expiryMatch[1];
+                console.log('Expiry Match:', expiryMatch);
                 
                 // Buscar placa (formato: ABC1234 ou ABC-1234)
                 const plateMatch = allText.match(/(?:Plate|License)[:\s]+([A-Z0-9-]{5,10})/i);
                 if (plateMatch) result.plate = plateMatch[1];
+                console.log('Plate Match:', plateMatch);
                 
                 // Buscar location (formato: "Calgary - Seton Professional Centre / Momentum Health Seton")
                 const locationMatch = allText.match(/(Calgary\s*-\s*[^\\n]+(?:\/[^\\n]+)?)/i);
                 if (locationMatch) result.location = locationMatch[1].trim();
+                console.log('Location Match:', locationMatch);
                 
                 // Buscar confirmation number (pode estar como "Confirmation #", "Reference", etc)
                 const confirmMatch = allText.match(/(?:Confirmation|Reference|Booking)[#\s:]+([A-Z0-9-]+)/i);
                 if (confirmMatch) result.confirmationNumber = confirmMatch[1];
+                console.log('Confirmation Match:', confirmMatch);
                 
                 return JSON.stringify(result);
               } catch(e) {
@@ -369,7 +375,8 @@ class ParkingAutomationManager(
 
         Log.d(TAG, "Extracting confirmation data from Page 5")
         webView.evaluateJavascript(extractScript) { jsonResult ->
-            Log.d(TAG, "Confirmation data extracted: $jsonResult")
+            Log.d(TAG, "===== CONFIRMATION DATA EXTRACTED =====")
+            Log.d(TAG, "Raw result: $jsonResult")
             
             // Parse the JSON result
             try {
@@ -378,6 +385,14 @@ class ParkingAutomationManager(
                 
                 // Parse manualmente (sem biblioteca JSON)
                 val confirmationDetails = parseConfirmationJson(cleanJson ?: "{}")
+                
+                Log.d(TAG, "===== PARSED CONFIRMATION DETAILS =====")
+                Log.d(TAG, "Start Time: ${confirmationDetails.startTime}")
+                Log.d(TAG, "Expiry Time: ${confirmationDetails.expiryTime}")
+                Log.d(TAG, "Plate: ${confirmationDetails.plate}")
+                Log.d(TAG, "Location: ${confirmationDetails.location}")
+                Log.d(TAG, "Confirmation #: ${confirmationDetails.confirmationNumber}")
+                Log.d(TAG, "=====================================")
                 
                 // Agora clicar no botão DONE
                 val clickScript = """
@@ -416,6 +431,7 @@ class ParkingAutomationManager(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error parsing confirmation data: ${e.message}")
+                e.printStackTrace()
                 onError("Erro ao extrair dados de confirmação: ${e.message}")
             }
         }
