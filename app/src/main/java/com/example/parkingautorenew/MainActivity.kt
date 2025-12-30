@@ -37,10 +37,11 @@ class MainActivity : AppCompatActivity() {
         urlInput = findViewById(R.id.urlInput)
         getInfoBtn = findViewById(R.id.getInfoBtn)
         clearBtn = findViewById(R.id.clearBtn)
-        infoText = findViewById(R.id.infoText)
+        infoText = findViewById(R.id.infoTextView)
+        webView = findViewById(R.id.webView)
         Log.d("MainActivity", "All UI elements found and bound")
         
-        // Criar WebView uma única vez
+        // Configurar WebView que já está no layout
         initializeWebView()
         
         // Forçar teclado quando EditText recebe foco
@@ -93,7 +94,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         clearBtn.setOnClickListener {
+            Log.d("MainActivity", "CLEAR clicked - Resetting state")
             infoText.text = "Enter a URL and click GET INFO"
+            urlInput.text.clear()
             currentUrl = ""
             captureCount = 0
             capturedPages.clear()
@@ -104,9 +107,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun initializeWebView() {
         Log.d("MainActivity", "=== initializeWebView() START ===")
-        
-        webView = WebView(this)
-        Log.d("MainActivity", "WebView instance created")
+        Log.d("MainActivity", "Configuring WebView from layout")
         
         webView.settings.apply {
             javaScriptEnabled = true
