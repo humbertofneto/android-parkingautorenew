@@ -41,6 +41,9 @@ class AutoRenewActivity : AppCompatActivity() {
 
         Log.d("AutoRenewActivity", "=== onCreate() START ===")
 
+        // Enable back button
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         licensePlateInput = findViewById(R.id.licensePlateInput)
         parkingDurationSpinner = findViewById(R.id.parkingDurationSpinner)
         renewalFrequencySpinner = findViewById(R.id.renewalFrequencySpinner)
@@ -238,6 +241,11 @@ class AutoRenewActivity : AppCompatActivity() {
         super.onDestroy()
         Log.d("AutoRenewActivity", "onDestroy() called")
         automationManager?.stop()
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        finish()
+        return true
     }
 
     inner class AutomationBridge {

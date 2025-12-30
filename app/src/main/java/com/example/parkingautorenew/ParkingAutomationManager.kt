@@ -62,31 +62,75 @@ class ParkingAutomationManager(
     }
 
     private fun captureAndProcessPage() {
-        Log.d(TAG, "Capturing page $currentPage")
+        Log.d(TAG, "Capturing current page")
 
         val script = """
             (function(){
               try {
+                // Detectar em qual página estamos baseado no conteúdo
+                const title = document.title;
+                const bodyText = document.body ? document.body.innerText : '';
+                
+                // Verificar elementos específicos de cada página
+                const hasPlateInput = document.getElementById('plate') !== null;
+                const hasDurationButtons = Array.from(document.querySelectorAll('button')).some(b => 
+                  b.textContent.includes('Hour Parking')
+                );
+                const hasRegisterButton = Array.from(document.querySelectorAll('button')).some(b => 
+                  b.textContent.toUpperCase() === 'REGISTER'
+                );
+                const hasEmailInput = document.getElementById('email') !== null;
+                
+                let detectedPage = 1;
+                
+                if (hasEmailInput) {
+                  detectedPage = 5;
+                } else if (hasRegisterButton) {
+                  detectedPage = 4;
+                } else if (hasDurationButtons) {
+                  detectedPage = 3;
+                } else if (hasPlateInput) {
+                  detectedPage = 2;
+                } else {
+                  detectedPage = 1;
+                }
+                
                 const info = {
-                  page: $currentPage,
-                  title: document.title,
-                  url: window.location.href,
-                  html: document.documentElement.outerHTML.substring(0, 5000)
+                  page: detectedPage,
+                  title: title,
+                  url: window.location.href
                 };
                 
-                if (typeof Android !== 'undefined' && Android.onPageReady) {
-                  Android.onPageReady(JSON.stringify(info));
-                }
+                return JSON.stringify(info);
               } catch(e) {
-                if (typeof Android !== 'undefined' && Android.onError) {
-                  Android.onError(e.message);
-                }
+                return JSON.stringify({page: 0, error: e.message});
               }
             })();
         """.trimIndent()
 
         webView.evaluateJavascript(script) { result ->
-            Log.d(TAG, "JavaScript evaluation result: $result")
+            Log.d(TAG, "Page detection result: $result")
+            
+            try {
+                // Parse o JSON retornado
+                val jsonResult = result?.trim('"')?.replace("\\", "") ?: "{}"
+                Log.d(TAG, "Parsed result: $jsonResult")
+                
+                // Extrair o número da página do resultado
+                val pageMatch = Regex(""""page":(\d+)""").find(jsonResult)
+                if (pageMatch != null) {
+                    val pageNum = pageMatch.groupValues[1].toInt()
+                    currentPage = pageNum
+                    Log.d(TAG, "Detected page: $currentPage")
+                    onPageReady(currentPage)
+                } else {
+                    Log.e(TAG, "Could not detect page number")
+                    onError("Não foi possível detectar a página atual")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing page result: ${e.message}")
+                onError("Erro ao processar resposta: ${e.message}")
+            }
         }
     }
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    
+    <!-- Car icon -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M30,50 L40,35 L80,35 L90,50 Z"/>
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M25,50 L25,70 L95,70 L95,50 Z"/>
+    <path
+        android:fillColor="#333333"
+        android:pathData="M35,70 A8,8 0 1,1 35,86 A8,8 0 1,1 35,70"/>
+    <path
+        android:fillColor="#333333"
+        android:pathData="M85,70 A8,8 0 1,1 85,86 A8,8 0 1,1 85,70"/>
+</vector>

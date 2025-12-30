@@ -3,89 +3,66 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="#F5F5F5"
+    android:padding="32dp">
 
-    <EditText
-        android:id="@+id/urlInput"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:hint="Enter URL to analyze"
-        android:inputType="textUri"
-        android:textSize="14sp"
+    <!-- Logo/Icon -->
+    <ImageView
+        android:id="@+id/appIcon"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:src="@drawable/ic_parking"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/appTitle"
+        app:layout_constraintVertical_chainStyle="packed" />
 
-    <LinearLayout
-        android:id="@+id/buttonLayout"
-        android:layout_width="0dp"
+    <!-- App Title -->
+    <TextView
+        android:id="@+id/appTitle"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/urlInput"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <Button
-            android:id="@+id/getInfoBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="GET INFO"
-            android:textSize="14sp"
-            android:layout_marginEnd="4dp"/>
-
-        <Button
-            android:id="@+id/clearBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="CLEAR"
-            android:textSize="14sp"
-            android:layout_marginEnd="4dp"
-            android:layout_marginStart="4dp"/>
-
-        <Button
-            android:id="@+id/autoRenewBtn"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="AUTO RENEW"
-            android:textSize="14sp"
-            android:layout_marginStart="4dp"/>
-
-    </LinearLayout>
-
-    <!-- WebView visível para interagir com a página -->
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/buttonLayout"
-        app:layout_constraintBottom_toTopOf="@id/infoScrollView"
+        android:text="Parking Auto Renewer"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#1F1F1F"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/appIcon"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="0.4"/>
+        app:layout_constraintBottom_toTopOf="@id/autoRenewBtn" />
 
-    <ScrollView
-        android:id="@+id/infoScrollView"
+    <!-- Auto Renew Button -->
+    <Button
+        android:id="@+id/autoRenewBtn"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/webView"
+        android:layout_height="60dp"
+        android:text="AUTO RENEW"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#4CAF50"
+        android:layout_marginTop="32dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toBottomOf="@id/appTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <!-- Debug/Bug Icon -->
+    <ImageView
+        android:id="@+id/debugIcon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_bug"
+        android:padding="12dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:clickable="true"
+        android:focusable="true"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_percent="0.35">
-
-        <TextView
-            android:id="@+id/infoText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Enter a URL and click GET INFO"
-            android:textSize="12sp"
-            android:fontFamily="monospace"/>
-    </ScrollView>
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

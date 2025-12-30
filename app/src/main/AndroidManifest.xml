@@ -26,5 +26,10 @@
             android:exported="false"
             android:label="Auto Renew Parking" />
 
+        <activity
+            android:name=".DebugActivity"
+            android:exported="false"
+            android:label="Debug Mode" />
+
     </application>
 </manifest>
