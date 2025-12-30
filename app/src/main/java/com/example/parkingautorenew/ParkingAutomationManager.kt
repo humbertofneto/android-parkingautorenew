@@ -8,7 +8,7 @@ import android.webkit.WebViewClient
 
 class ParkingAutomationManager(
     private val webView: WebView,
-    private val onSuccess: () -> Unit,
+    private val onSuccess: (ConfirmationDetails) -> Unit,
     private val onError: (String) -> Unit
 ) {
     companion object {
@@ -326,41 +326,122 @@ class ParkingAutomationManager(
     private fun handlePage5() {
         Log.d(TAG, "Handling Page 5 (Email)")
         
-        val script = """
+        // Primeiro extrair os dados de confirmação
+        val extractScript = """
             (function(){
               try {
-                // Clicar Done/DONE sem enviar email
-                const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
-                  b.textContent.toUpperCase() === 'DONE'
-                );
+                const result = {
+                  startTime: '',
+                  expiryTime: '',
+                  plate: '',
+                  location: '',
+                  confirmationNumber: ''
+                };
                 
-                if (doneButton) {
-                  doneButton.click();
-                }
+                // Extrair informações da página de confirmação
+                const allText = document.body.innerText;
                 
-                if (typeof Android !== 'undefined' && Android.onStepComplete) {
-                  Android.onStepComplete('page5_completed');
-                }
+                // Buscar Start e Expiry (formato: "Dec 30, 2025 10:30 AM")
+                const startMatch = allText.match(/Start[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
+                if (startMatch) result.startTime = startMatch[1];
+                
+                const expiryMatch = allText.match(/Expir(?:y|es)[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
+                if (expiryMatch) result.expiryTime = expiryMatch[1];
+                
+                // Buscar placa (formato: ABC1234 ou ABC-1234)
+                const plateMatch = allText.match(/(?:Plate|License)[:\s]+([A-Z0-9-]{5,10})/i);
+                if (plateMatch) result.plate = plateMatch[1];
+                
+                // Buscar location (formato: "Calgary - Seton Professional Centre / Momentum Health Seton")
+                const locationMatch = allText.match(/(Calgary\s*-\s*[^\\n]+(?:\/[^\\n]+)?)/i);
+                if (locationMatch) result.location = locationMatch[1].trim();
+                
+                // Buscar confirmation number (pode estar como "Confirmation #", "Reference", etc)
+                const confirmMatch = allText.match(/(?:Confirmation|Reference|Booking)[#\s:]+([A-Z0-9-]+)/i);
+                if (confirmMatch) result.confirmationNumber = confirmMatch[1];
+                
+                return JSON.stringify(result);
               } catch(e) {
-                if (typeof Android !== 'undefined' && Android.onError) {
-                  Android.onError('Erro page 5: ' + e.message);
-                }
+                return JSON.stringify({ error: e.message });
               }
             })();
         """.trimIndent()
 
-        Log.d(TAG, "Executing Page 5 automation script")
-        webView.evaluateJavascript(script) { result ->
-            Log.d(TAG, "Page 5 script result: $result")
+        Log.d(TAG, "Extracting confirmation data from Page 5")
+        webView.evaluateJavascript(extractScript) { jsonResult ->
+            Log.d(TAG, "Confirmation data extracted: $jsonResult")
             
-            // Automação concluída com sucesso
-            Log.d(TAG, "=== Automation completed successfully ===")
-            isExecuting = false
-            
-            Handler(Looper.getMainLooper()).post {
-                onSuccess()
+            // Parse the JSON result
+            try {
+                val cleanJson = jsonResult?.trim('"')?.replace("\\\"", "\"")?.replace("\\n", "")
+                Log.d(TAG, "Clean JSON: $cleanJson")
+                
+                // Parse manualmente (sem biblioteca JSON)
+                val confirmationDetails = parseConfirmationJson(cleanJson ?: "{}")
+                
+                // Agora clicar no botão DONE
+                val clickScript = """
+                    (function(){
+                      try {
+                        const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
+                          b.textContent.toUpperCase() === 'DONE'
+                        );
+                        
+                        if (doneButton) {
+                          doneButton.click();
+                        }
+                        
+                        if (typeof Android !== 'undefined' && Android.onStepComplete) {
+                          Android.onStepComplete('page5_completed');
+                        }
+                      } catch(e) {
+                        if (typeof Android !== 'undefined' && Android.onError) {
+                          Android.onError('Erro page 5: ' + e.message);
+                        }
+                      }
+                    })();
+                """.trimIndent()
+
+                Log.d(TAG, "Executing Page 5 click DONE script")
+                webView.evaluateJavascript(clickScript) { result ->
+                    Log.d(TAG, "Page 5 script result: $result")
+                    
+                    // Automação concluída com sucesso
+                    Log.d(TAG, "=== Automation completed successfully ===")
+                    isExecuting = false
+                    
+                    Handler(Looper.getMainLooper()).post {
+                        onSuccess(confirmationDetails)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing confirmation data: ${e.message}")
+                onError("Erro ao extrair dados de confirmação: ${e.message}")
             }
         }
+    }
+    
+    private fun parseConfirmationJson(json: String): ConfirmationDetails {
+        // Parse simples sem biblioteca externa
+        val startTime = extractJsonValue(json, "startTime")
+        val expiryTime = extractJsonValue(json, "expiryTime")
+        val plate = extractJsonValue(json, "plate")
+        val location = extractJsonValue(json, "location")
+        val confirmationNumber = extractJsonValue(json, "confirmationNumber")
+        
+        return ConfirmationDetails(
+            startTime = startTime.ifEmpty { "N/A" },
+            expiryTime = expiryTime.ifEmpty { "N/A" },
+            plate = plate.ifEmpty { "N/A" },
+            location = location.ifEmpty { "N/A" },
+            confirmationNumber = confirmationNumber.ifEmpty { "N/A" }
+        )
+    }
+    
+    private fun extractJsonValue(json: String, key: String): String {
+        val regex = """"$key"\s*:\s*"([^"]*)"""".toRegex()
+        val match = regex.find(json)
+        return match?.groupValues?.get(1) ?: ""
     }
 
     fun stop() {

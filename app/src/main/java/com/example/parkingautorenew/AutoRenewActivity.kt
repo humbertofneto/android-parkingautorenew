@@ -3,6 +3,7 @@ package com.example.parkingautorenew
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -34,6 +35,9 @@ class AutoRenewActivity : AppCompatActivity() {
     private var isRunning = false
     private var renewalWorkTag = "parking_auto_renew"
     private var automationManager: ParkingAutomationManager? = null
+    private val countdownHandler = Handler(Looper.getMainLooper())
+    private var nextRenewalTimeMillis: Long = 0
+    private var lastConfirmationDetails: ConfirmationDetails? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,10 +138,21 @@ class AutoRenewActivity : AppCompatActivity() {
             apply()
         }
 
-        // Agendar a renovação periódica
+        // Iniciar Foreground Service
+        val serviceIntent = Intent(this, ParkingRenewalService::class.java)
+        serviceIntent.action = "START_AUTO_RENEW"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+        
+        Log.d("AutoRenewActivity", "Foreground service started")
+
+        // Agendar a renovação periódica (backup com WorkManager)
         schedulePeriodicRenewal(frequency)
 
-        // Executar primeira renovação imediatamente
+        // Executar primeira renovação imediatamente na Activity
         executeRenewal(plate, duration)
     }
 
@@ -176,10 +191,11 @@ class AutoRenewActivity : AppCompatActivity() {
         // Criar automação
         automationManager = ParkingAutomationManager(
             automationWebView,
-            onSuccess = {
+            onSuccess = { confirmationDetails ->
                 Log.d("AutoRenewActivity", "Renewal completed successfully")
-                val timestamp = SimpleDateFormat("HH:mm:ss").format(System.currentTimeMillis())
-                statusText.text = "Status: Auto-Renew ativo\nÚltima renovação: $timestamp"
+                lastConfirmationDetails = confirmationDetails
+                updateStatusWithConfirmation(confirmationDetails)
+                startCountdownTimer()
             },
             onError = { error ->
                 Log.e("AutoRenewActivity", "Renewal error: $error")
@@ -194,8 +210,73 @@ class AutoRenewActivity : AppCompatActivity() {
         automationManager?.start(plate, duration)
     }
 
+    private fun updateStatusWithConfirmation(details: ConfirmationDetails) {
+        val timestamp = SimpleDateFormat("HH:mm:ss").format(System.currentTimeMillis())
+        statusText.text = """Status: Auto-Renew ativo
+            |Última renovação: $timestamp
+            |
+            |═══ CONFIRMAÇÃO ═══
+            |Start: ${details.startTime}
+            |Expiry: ${details.expiryTime}
+            |Placa: ${details.plate}
+            |Local: ${details.location}
+            |Confirmação #: ${details.confirmationNumber}
+            |
+            |⏱ Próxima renovação: calculando...""".trimMargin()
+    }
+    
+    private fun startCountdownTimer() {
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val frequency = prefs.getString("renewal_frequency", "1 hour") ?: "1 hour"
+        
+        // Calcular próxima renovação
+        val intervalMillis = when (frequency) {
+            "30 min" -> 30 * 60 * 1000L
+            "1 hour" -> 60 * 60 * 1000L
+            "1:30 hour" -> 90 * 60 * 1000L
+            "2 hour" -> 2 * 60 * 60 * 1000L
+            else -> 60 * 60 * 1000L
+        }
+        
+        nextRenewalTimeMillis = System.currentTimeMillis() + intervalMillis
+        updateCountdown()
+    }
+    
+    private fun updateCountdown() {
+        if (!isRunning) return
+        
+        val remainingMillis = nextRenewalTimeMillis - System.currentTimeMillis()
+        
+        if (remainingMillis > 0) {
+            val minutes = (remainingMillis / 1000 / 60).toInt()
+            val seconds = ((remainingMillis / 1000) % 60).toInt()
+            
+            // Atualizar apenas a linha do countdown
+            lastConfirmationDetails?.let { details ->
+                val timestamp = SimpleDateFormat("HH:mm:ss").format(nextRenewalTimeMillis - (remainingMillis))
+                statusText.text = """Status: Auto-Renew ativo
+                    |Última renovação: $timestamp
+                    |
+                    |═══ CONFIRMAÇÃO ═══
+                    |Start: ${details.startTime}
+                    |Expiry: ${details.expiryTime}
+                    |Placa: ${details.plate}
+                    |Local: ${details.location}
+                    |Confirmação #: ${details.confirmationNumber}
+                    |
+                    |⏱ Próxima renovação em: ${minutes}min ${seconds}s""".trimMargin()
+            }
+            
+            // Agendar próxima atualização em 1 segundo
+            countdownHandler.postDelayed({ updateCountdown() }, 1000)
+        }
+    }
+    
     private fun stopAutoRenew() {
         Log.d("AutoRenewActivity", "Stopping auto-renew")
+        
+        // Parar countdown timer
+        countdownHandler.removeCallbacksAndMessages(null)
 
         isRunning = false
         startButton.isEnabled = true
@@ -205,6 +286,11 @@ class AutoRenewActivity : AppCompatActivity() {
         renewalFrequencySpinner.isEnabled = true
 
         statusText.text = "Status: Auto-Renew parado"
+        
+        // Parar Foreground Service
+        val serviceIntent = Intent(this, ParkingRenewalService::class.java)
+        serviceIntent.action = "STOP_AUTO_RENEW"
+        startService(serviceIntent)
 
         // Cancelar work agendado
         WorkManager.getInstance(this).cancelAllWorkByTag(renewalWorkTag)
@@ -216,7 +302,12 @@ class AutoRenewActivity : AppCompatActivity() {
             apply()
         }
 
-        Log.d("AutoRenewActivity", "Auto-renew stopped")
+        Log.d("AutoRenewActivity", "Auto-renew stopped, service stopped")
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        countdownHandler.removeCallbacksAndMessages(null)
     }
 
     private fun createNotificationChannel() {
