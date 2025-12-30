@@ -304,11 +304,6 @@ class AutoRenewActivity : AppCompatActivity() {
 
         Log.d("AutoRenewActivity", "Auto-renew stopped, service stopped")
     }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        countdownHandler.removeCallbacksAndMessages(null)
-    }
 
     private fun createNotificationChannel() {
         Log.d("AutoRenewActivity", "Creating notification channel")
@@ -331,6 +326,7 @@ class AutoRenewActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d("AutoRenewActivity", "onDestroy() called")
+        countdownHandler.removeCallbacksAndMessages(null)
         automationManager?.stop()
     }
 
