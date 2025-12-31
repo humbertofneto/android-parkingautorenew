@@ -328,7 +328,21 @@ class AutoRenewActivity : AppCompatActivity() {
     private fun updateCountdown() {
         if (!isRunning) return
         
-        val remainingMillis = nextRenewalTimeMillis - System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val lastRenewalTime = prefs.getLong("last_renewal_time", 0)
+        
+        // Calcular tempo decorrido desde a última renovação
+        val elapsedMillis = if (lastRenewalTime > 0) now - lastRenewalTime else 0L
+        val elapsedMinutes = (elapsedMillis / 1000 / 60).toInt()
+        val elapsedSeconds = ((elapsedMillis / 1000) % 60).toInt()
+        
+        val elapsedText = when {
+            elapsedMinutes > 0 -> "há ${elapsedMinutes}min ${elapsedSeconds}s"
+            else -> "há ${elapsedSeconds}s"
+        }
+        
+        val remainingMillis = nextRenewalTimeMillis - now
         
         if (remainingMillis > 0) {
             val minutes = (remainingMillis / 1000 / 60).toInt()
@@ -336,9 +350,8 @@ class AutoRenewActivity : AppCompatActivity() {
             
             // Atualizar apenas a linha do countdown
             lastConfirmationDetails?.let { details ->
-                val timestamp = SimpleDateFormat("HH:mm:ss").format(nextRenewalTimeMillis - (remainingMillis))
                 statusText.text = """Status: Auto-Renew ativo
-                    |Última renovação: $timestamp
+                    |Última renovação: $elapsedText
                     |
                     |═══ CONFIRMAÇÃO ═══
                     |Start: ${details.startTime}
