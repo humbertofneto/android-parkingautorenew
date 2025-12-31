@@ -24,12 +24,15 @@ class ParkingAutomationManager(
 
     private var currentPage = 1
     private var parkingDuration = "1 Hour"
+    private var plateNumber = ""
+    private var sendEmail = false
+    private var userEmail = ""
     private var isExecuting = false
     private var successCalled = false  // Flag para evitar múltiplas chamadas
     private val mainHandler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
 
-    fun start(plate: String, duration: String) {
+    fun start(plate: String, duration: String, shouldSendEmail: Boolean = false, email: String = "") {
         if (isExecuting) {
             Log.w(TAG, "Automation already running")
             return
@@ -37,10 +40,16 @@ class ParkingAutomationManager(
 
         Log.d(TAG, "=== Starting automation ===")
         Log.d(TAG, "Plate: $plate, Duration: $duration")
+        if (shouldSendEmail) {
+            Log.d(TAG, "Email will be sent to: $email")
+        }
 
         isExecuting = true
         successCalled = false  // Reset flag para nova execução
         parkingDuration = duration
+        plateNumber = plate
+        sendEmail = shouldSendEmail
+        userEmail = email
         currentPage = 1
         
         // Agendar timeout de segurança
@@ -558,62 +567,145 @@ class ParkingAutomationManager(
                 Log.d(TAG, "Confirmation #: ${confirmationDetails.confirmationNumber}")
                 Log.d(TAG, "=====================================")
                 
-                // Agora clicar no botão DONE
-                val clickScript = """
-                    (function(){
-                      try {
-                        const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
-                          b.textContent.toUpperCase() === 'DONE'
-                        );
-                        
-                        if (doneButton) {
-                          doneButton.click();
-                        }
-                        
-                        if (typeof Android !== 'undefined' && Android.onStepComplete) {
-                          Android.onStepComplete('page5_completed');
-                        }
-                      } catch(e) {
-                        if (typeof Android !== 'undefined' && Android.onError) {
-                          Android.onError('Erro page 5: ' + e.message);
-                        }
-                      }
-                    })();
-                """.trimIndent()
-
-                Log.d(TAG, "Executing Page 5 click DONE script")
-                webView.evaluateJavascript(clickScript) { result ->
-                    Log.d(TAG, "Page 5 script result: $result")
-                    
-                    // Automação concluída com sucesso
-                    Log.d(TAG, "=== Automation completed successfully ===")
-                    
-                    // Evitar múltiplas chamadas de onSuccess
-                    if (!successCalled) {
-                        successCalled = true
-                        isExecuting = false
-                        
-                        // Cancelar timeout de segurança
-                        cancelTimeoutHandler()
-                        
-                        // PARAR WebView imediatamente
-                        Log.d(TAG, "Stopping WebView to prevent continuous reloading")
-                        Handler(Looper.getMainLooper()).post {
-                            webView.stopLoading()
-                            webView.loadUrl("about:blank")
-                            
-                            // Chamar callback de sucesso
-                            onSuccess(confirmationDetails)
-                        }
-                    } else {
-                        Log.w(TAG, "onSuccess already called, ignoring duplicate")
-                    }
+                // Verificar se deve enviar email
+                if (sendEmail && userEmail.isNotEmpty()) {
+                    Log.d(TAG, "Sending email to: $userEmail")
+                    sendEmailAndClickDone(userEmail, confirmationDetails)
+                } else {
+                    Log.d(TAG, "Skipping email, clicking DONE directly")
+                    clickDone(confirmationDetails)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error parsing confirmation data: ${e.message}")
                 e.printStackTrace()
                 onError("Erro ao extrair dados de confirmação: ${e.message}")
             }
+        }
+    }
+    
+    private fun sendEmailAndClickDone(email: String, confirmationDetails: ConfirmationDetails) {
+        val emailScript = """
+            (function(){
+              try {
+                // 1. Marcar checkbox
+                const checkbox = document.getElementById('wantsEmail');
+                if (checkbox && !checkbox.checked) {
+                  checkbox.click();
+                  console.log('Checkbox marcado');
+                }
+                
+                // 2. Aguardar campo de email aparecer e preencher
+                setTimeout(function() {
+                  const emailInput = document.getElementById('email');
+                  if (emailInput) {
+                    emailInput.value = '$email';
+                    emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    console.log('Email preenchido: $email');
+                    
+                    // 3. Aguardar botão SEND ficar enabled
+                    let checkCount = 0;
+                    const checkInterval = setInterval(function() {
+                      checkCount++;
+                      const sendButton = Array.from(document.querySelectorAll('button')).find(b => 
+                        b.textContent.trim().toUpperCase() === 'SEND'
+                      );
+                      
+                      if (sendButton && !sendButton.disabled) {
+                        clearInterval(checkInterval);
+                        console.log('Botão SEND enabled, clicando...');
+                        sendButton.click();
+                        
+                        // 4. Aguardar processamento e clicar DONE
+                        setTimeout(function() {
+                          console.log('Email enviado, clicando DONE...');
+                          const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
+                            b.textContent.trim().toUpperCase() === 'DONE' && b.offsetParent !== null
+                          );
+                          if (doneButton) {
+                            doneButton.click();
+                            console.log('DONE clicado');
+                          }
+                        }, 3000);
+                        
+                      } else if (checkCount >= 20) {
+                        clearInterval(checkInterval);
+                        console.log('Timeout esperando SEND enabled');
+                      } else {
+                        console.log('Check #' + checkCount + ': SEND ainda disabled');
+                      }
+                    }, 500);
+                  } else {
+                    console.log('Campo de email não encontrado');
+                  }
+                }, 500);
+                
+                return 'email_process_started';
+              } catch(e) {
+                console.error('Erro ao enviar email: ' + e.message);
+                return 'error: ' + e.message;
+              }
+            })();
+        """.trimIndent()
+        
+        Log.d(TAG, "Executing email automation script")
+        webView.evaluateJavascript(emailScript) { result ->
+            Log.d(TAG, "Email script result: $result")
+            
+            // Aguardar tempo suficiente para completar todo o processo
+            Handler(Looper.getMainLooper()).postDelayed({
+                completeAutomation(confirmationDetails)
+            }, 5000)
+        }
+    }
+    
+    private fun clickDone(confirmationDetails: ConfirmationDetails) {
+        val clickScript = """
+            (function(){
+              try {
+                const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
+                  b.textContent.trim().toUpperCase() === 'DONE' && b.offsetParent !== null
+                );
+                
+                if (doneButton) {
+                  doneButton.click();
+                  console.log('DONE clicado');
+                }
+              } catch(e) {
+                console.error('Erro ao clicar DONE: ' + e.message);
+              }
+            })();
+        """.trimIndent()
+
+        Log.d(TAG, "Executing Page 5 click DONE script")
+        webView.evaluateJavascript(clickScript) { result ->
+            Log.d(TAG, "Click DONE script result: $result")
+            completeAutomation(confirmationDetails)
+        }
+    }
+    
+    private fun completeAutomation(confirmationDetails: ConfirmationDetails) {
+        Log.d(TAG, "=== Automation completed successfully ===")
+        
+        // Evitar múltiplas chamadas de onSuccess
+        if (!successCalled) {
+            successCalled = true
+            isExecuting = false
+            
+            // Cancelar timeout de segurança
+            cancelTimeoutHandler()
+            
+            // PARAR WebView imediatamente
+            Log.d(TAG, "Stopping WebView to prevent continuous reloading")
+            Handler(Looper.getMainLooper()).post {
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                
+                // Chamar callback de sucesso
+                onSuccess(confirmationDetails)
+            }
+        } else {
+            Log.w(TAG, "onSuccess already called, ignoring duplicate")
         }
     }
     

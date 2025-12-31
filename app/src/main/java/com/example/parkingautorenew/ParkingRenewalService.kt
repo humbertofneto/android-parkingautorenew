@@ -226,8 +226,12 @@ class ParkingRenewalService : Service() {
         sendBroadcast(startIntent)
         Log.d(TAG, "Broadcast sent: RENEWAL_START")
         
-        Log.d(TAG, "Starting automation with plate=$plate, duration=$duration")
-        automationManager?.start(plate, duration)
+        // Obter configurações de email
+        val sendEmail = prefs.getBoolean("send_email", false)
+        val email = prefs.getString("user_email", "") ?: ""
+        
+        Log.d(TAG, "Starting automation with plate=$plate, duration=$duration, sendEmail=$sendEmail")
+        automationManager?.start(plate, duration, sendEmail, email)
         Log.d(TAG, "automationManager.start() called")
         
         // Agendar próxima renovação após esta

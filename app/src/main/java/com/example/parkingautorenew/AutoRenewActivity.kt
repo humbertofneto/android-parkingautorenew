@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
@@ -40,6 +41,8 @@ class AutoRenewActivity : AppCompatActivity() {
     private lateinit var licensePlateInput: EditText
     private lateinit var parkingDurationSpinner: Spinner
     private lateinit var renewalFrequencySpinner: Spinner
+    private lateinit var emailCheckbox: CheckBox
+    private lateinit var emailInput: EditText
     private lateinit var statusText: TextView
     private lateinit var successCountText: TextView
     private lateinit var failureCountText: TextView
@@ -121,6 +124,8 @@ class AutoRenewActivity : AppCompatActivity() {
         licensePlateInput = findViewById(R.id.licensePlateInput)
         parkingDurationSpinner = findViewById(R.id.parkingDurationSpinner)
         renewalFrequencySpinner = findViewById(R.id.renewalFrequencySpinner)
+        emailCheckbox = findViewById(R.id.emailCheckbox)
+        emailInput = findViewById(R.id.emailInput)
         statusText = findViewById(R.id.statusText)
         successCountText = findViewById(R.id.successCountText)
         failureCountText = findViewById(R.id.failureCountText)
@@ -136,6 +141,7 @@ class AutoRenewActivity : AppCompatActivity() {
 
         setupAutomationWebView()
         setupSpinners()
+        setupEmailCheckbox()
         createNotificationChannel()
         setupButtonListeners()
         setupLicensePlateInput()
@@ -259,6 +265,20 @@ class AutoRenewActivity : AppCompatActivity() {
         renewalFrequencySpinner.adapter = frequencyAdapter
     }
 
+    private fun setupEmailCheckbox() {
+        // Quando checkbox for marcado, mostrar campo de email
+        emailCheckbox.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                emailInput.visibility = View.VISIBLE
+                emailInput.isEnabled = true
+            } else {
+                emailInput.visibility = View.GONE
+                emailInput.isEnabled = false
+                emailInput.text.clear()
+            }
+        }
+    }
+
     private fun setupButtonListeners() {
         startButton.setOnClickListener {
             // Se o botão for "Start Again", resetar para tela inicial
@@ -272,6 +292,21 @@ class AutoRenewActivity : AppCompatActivity() {
                 statusText.text = "Status: Por favor, insira a placa do veículo"
                 statusText.visibility = View.VISIBLE
                 return@setOnClickListener
+            }
+
+            // Validar email se checkbox marcado
+            if (emailCheckbox.isChecked) {
+                val email = emailInput.text.toString().trim()
+                if (email.isEmpty()) {
+                    statusText.text = "Status: Por favor, insira um email"
+                    statusText.visibility = View.VISIBLE
+                    return@setOnClickListener
+                }
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    statusText.text = "Status: Email inválido"
+                    statusText.visibility = View.VISIBLE
+                    return@setOnClickListener
+                }
             }
 
             Log.d("AutoRenewActivity", "Start button clicked - Plate: $plate")
@@ -324,6 +359,8 @@ class AutoRenewActivity : AppCompatActivity() {
         licensePlateInput.visibility = View.GONE
         parkingDurationSpinner.visibility = View.GONE
         renewalFrequencySpinner.visibility = View.GONE
+        emailCheckbox.visibility = View.GONE
+        emailInput.visibility = View.GONE
         
         // Atualizar labels com os valores escolhidos
         licensePlateLabel.text = "Placa do Veículo: $plate"
@@ -343,10 +380,16 @@ class AutoRenewActivity : AppCompatActivity() {
         // Guardar configurações para o background service usar
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
         
+        // Salvar preferências de email
+        val sendEmail = emailCheckbox.isChecked
+        val email = if (sendEmail) emailInput.text.toString().trim() else ""
+        
         // Zerar contadores nas preferências para nova reserva
         prefs.edit().apply {
             putInt("success_count", 0)
             putInt("failure_count", 0)
+            putBoolean("send_email", sendEmail)
+            putString("user_email", email)
             apply()
         }
         
@@ -452,8 +495,13 @@ class AutoRenewActivity : AppCompatActivity() {
         // Guardar placa na tag do WebView para a automação usar
         automationWebView.tag = plate
         
-        // Iniciar automação
-        automationManager?.start(plate, duration)
+        // Obter configurações de email
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val sendEmail = prefs.getBoolean("send_email", false)
+        val email = prefs.getString("user_email", "") ?: ""
+        
+        // Iniciar automação com parâmetros de email
+        automationManager?.start(plate, duration, sendEmail, email)
     }
 
     private fun updateStatusWithConfirmation(details: ConfirmationDetails) {
@@ -619,6 +667,11 @@ class AutoRenewActivity : AppCompatActivity() {
         licensePlateInput.visibility = View.VISIBLE
         parkingDurationSpinner.visibility = View.VISIBLE
         renewalFrequencySpinner.visibility = View.VISIBLE
+        emailCheckbox.visibility = View.VISIBLE
+        emailCheckbox.isChecked = false
+        emailInput.visibility = View.GONE
+        emailInput.isEnabled = false
+        emailInput.text.clear()
         
         // Mostrar labels
         licensePlateLabel.visibility = View.VISIBLE

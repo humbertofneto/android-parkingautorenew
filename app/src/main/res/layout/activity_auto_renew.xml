@@ -95,6 +95,29 @@
                 android:background="@drawable/spinner_background"
                 android:layout_marginBottom="24dp" />
 
+            <!-- Email Confirmation -->
+            <CheckBox
+                android:id="@+id/emailCheckbox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Confirmação por email?"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/emailInput"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Digite seu email"
+                android:inputType="textEmailAddress"
+                android:padding="12dp"
+                android:background="@drawable/edit_text_background"
+                android:textSize="16sp"
+                android:enabled="false"
+                android:visibility="gone"
+                android:layout_marginBottom="24dp" />
+
             <!-- Contadores -->
             <LinearLayout
                 android:id="@+id/countersLayout"
