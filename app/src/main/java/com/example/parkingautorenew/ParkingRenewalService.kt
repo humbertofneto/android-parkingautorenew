@@ -105,10 +105,8 @@ class ParkingRenewalService : Service() {
         
         Log.d(TAG, "Auto-renew started in foreground")
         
-        // Executar primeira renovação
-        executeRenewal()
-        
         // Agendar próximas renovações
+        // (Activity executará a primeira renovação)
         scheduleNextRenewal()
     }
     
