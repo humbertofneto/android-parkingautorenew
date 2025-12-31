@@ -3,6 +3,8 @@ package com.example.parkingautorenew
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 
@@ -69,6 +71,14 @@ class ParkingAutomationManager(
     }
 
     private fun setupWebViewClient() {
+        // Adicionar WebChromeClient para capturar console.log do JavaScript
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                Log.d("JS_Console", "${consoleMessage.message()} (${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})")
+                return true
+            }
+        }
+        
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
