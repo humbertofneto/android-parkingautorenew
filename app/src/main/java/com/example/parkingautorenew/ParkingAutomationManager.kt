@@ -401,32 +401,72 @@ class ParkingAutomationManager(
                 const allText = document.body.innerText;
                 console.log('PAGE 5 FULL TEXT:', allText);
                 
-                // Buscar Start e Expiry (formato: "Dec 30, 2025 10:30 AM")
-                const startMatch = allText.match(/Start[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
+                // Tentar extrair Start Time - mais flexível
+                let startMatch = allText.match(/Start\s*[:\-]?\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+(?:AM|PM))/i);
                 if (startMatch) result.startTime = startMatch[1];
+                if (!result.startTime) {
+                  // Tentar padrão alternativo
+                  startMatch = allText.match(/(?:starts?|begins?)\s+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}[\\s\\S]{0,30}?\d{1,2}:\d{2}\s+(?:AM|PM))/i);
+                  if (startMatch) result.startTime = startMatch[1].trim();
+                }
                 console.log('Start Match:', startMatch);
                 
-                const expiryMatch = allText.match(/Expir(?:y|es)[:\s]+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+[AP]M)/i);
+                // Tentar extrair Expiry Time - mais flexível
+                let expiryMatch = allText.match(/Expir(?:y|es|ing|e)\s*[:\-]?\s*([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s+(?:AM|PM))/i);
                 if (expiryMatch) result.expiryTime = expiryMatch[1];
+                if (!result.expiryTime) {
+                  // Tentar padrão alternativo
+                  expiryMatch = allText.match(/(?:until|till|through)\s+([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}[\\s\\S]{0,30}?\d{1,2}:\d{2}\s+(?:AM|PM))/i);
+                  if (expiryMatch) result.expiryTime = expiryMatch[1].trim();
+                }
                 console.log('Expiry Match:', expiryMatch);
                 
-                // Buscar placa (formato: ABC1234 ou ABC-1234)
-                const plateMatch = allText.match(/(?:Plate|License)[:\s]+([A-Z0-9-]{5,10})/i);
-                if (plateMatch) result.plate = plateMatch[1];
+                // Extrair placa - mais flexível
+                let plateMatch = allText.match(/(?:Plate|License|Vehicle)\s*[:\-]?\s*([A-Z]{2,3}[\s\-]?[0-9]{2,4}(?:[\s\-]?[A-Z]{1,2})?)/);
+                if (plateMatch) {
+                  result.plate = plateMatch[1].toUpperCase().trim();
+                } else {
+                  // Tentar padrão simples de letras + números
+                  plateMatch = allText.match(/([A-Z]{1,3}[\s\-]?[0-9]{3,4}[\s\-]?[A-Z]{0,2})/);
+                  if (plateMatch) result.plate = plateMatch[1].toUpperCase().trim();
+                }
                 console.log('Plate Match:', plateMatch);
                 
-                // Buscar location (formato: "Calgary - Seton Professional Centre / Momentum Health Seton")
-                const locationMatch = allText.match(/(Calgary\s*-\s*[^\\n]+(?:\/[^\\n]+)?)/i);
-                if (locationMatch) result.location = locationMatch[1].trim();
+                // Extrair location - muito flexível
+                // Procurar por padrões de "City - Sector/Location"
+                let locationMatch = allText.match(/(Calgary[\\s\\S]{0,200}?(?:Seton|Barlow|South|North|West|East|Centre|Center|Downtown|Midtown)[\\s\\S]{0,100}?)(?=[\\n\\r]|$)/i);
+                if (!locationMatch) {
+                  // Procurar apenas Calgary seguido de algo
+                  locationMatch = allText.match(/(Calgary[^\\n]{10,150})/i);
+                }
+                if (locationMatch) {
+                  // Limpar a string
+                  let location = locationMatch[1].replace(/[\\n\\r]+/g, ' ').trim();
+                  // Remover espaços múltiplos
+                  location = location.replace(/\\s{2,}/g, ' ');
+                  // Truncar se muito longo
+                  if (location.length > 100) {
+                    location = location.substring(0, 100).trim();
+                  }
+                  result.location = location;
+                }
                 console.log('Location Match:', locationMatch);
                 
-                // Buscar confirmation number (pode estar como "Confirmation #", "Reference", etc)
-                const confirmMatch = allText.match(/(?:Confirmation|Reference|Booking)[#\s:]+([A-Z0-9-]+)/i);
-                if (confirmMatch) result.confirmationNumber = confirmMatch[1];
+                // Extrair confirmation number - muito flexível
+                let confirmMatch = allText.match(/(?:Confirmation|Reference|Booking|Order|ID)[#\\s\-:]*([A-Z0-9]{6,20})/i);
+                if (confirmMatch) {
+                  result.confirmationNumber = confirmMatch[1];
+                } else {
+                  // Procurar números longos que possam ser confirmação
+                  confirmMatch = allText.match(/[#:]?\\s*([0-9]{8,15})/);
+                  if (confirmMatch) result.confirmationNumber = confirmMatch[1];
+                }
                 console.log('Confirmation Match:', confirmMatch);
                 
+                console.log('Final Result:', JSON.stringify(result));
                 return JSON.stringify(result);
               } catch(e) {
+                console.error('Error extracting data:', e.message);
                 return JSON.stringify({ error: e.message });
               }
             })();
@@ -513,12 +553,16 @@ class ParkingAutomationManager(
     }
     
     private fun parseConfirmationJson(json: String): ConfirmationDetails {
+        Log.d(TAG, "Parsing confirmation JSON: $json")
+        
         // Parse simples sem biblioteca externa
         val startTime = extractJsonValue(json, "startTime")
         val expiryTime = extractJsonValue(json, "expiryTime")
         val plate = extractJsonValue(json, "plate")
         val location = extractJsonValue(json, "location")
         val confirmationNumber = extractJsonValue(json, "confirmationNumber")
+        
+        Log.d(TAG, "Extracted values - Start: '$startTime', Expiry: '$expiryTime', Plate: '$plate', Location: '$location', Confirm: '$confirmationNumber'")
         
         return ConfirmationDetails(
             startTime = startTime.ifEmpty { "N/A" },
@@ -530,9 +574,26 @@ class ParkingAutomationManager(
     }
     
     private fun extractJsonValue(json: String, key: String): String {
-        val regex = """"$key"\s*:\s*"([^"]*)"""".toRegex()
-        val match = regex.find(json)
-        return match?.groupValues?.get(1) ?: ""
+        // Tenta primeiro padrão com aspas duplas
+        var regex = """"$key"\s*:\s*"([^"]*)"""".toRegex()
+        var match = regex.find(json)
+        if (match != null) {
+            val value = match.groupValues.getOrNull(1) ?: return ""
+            Log.d(TAG, "Found '$key' with quotes: '$value'")
+            return value
+        }
+        
+        // Tenta padrão sem aspas (para números)
+        regex = """"$key"\s*:\s*([^,}]*)""".toRegex()
+        match = regex.find(json)
+        if (match != null) {
+            val value = (match.groupValues.getOrNull(1) ?: "").trim().trim('"')
+            Log.d(TAG, "Found '$key' without quotes: '$value'")
+            return value
+        }
+        
+        Log.w(TAG, "Could not find key '$key' in JSON")
+        return ""
     }
 
     fun stop() {
