@@ -206,6 +206,7 @@ class AutoRenewActivity : AppCompatActivity() {
 
         isRunning = true
         startButton.isEnabled = false
+        startButton.text = "Start\nAuto-Renew"
         stopButton.isEnabled = true
         stopButton.visibility = View.VISIBLE
         
@@ -434,18 +435,27 @@ class AutoRenewActivity : AppCompatActivity() {
 
         isRunning = false
         startButton.isEnabled = true
+        startButton.text = "Start\nAgain"
         stopButton.isEnabled = false
         stopButton.visibility = View.GONE
         
-        // Esconder campos de input
-        licensePlateInput.visibility = View.GONE
-        parkingDurationSpinner.visibility = View.GONE
-        renewalFrequencySpinner.visibility = View.GONE
+        // Mostrar campos de input novamente para preencher
+        licensePlateInput.visibility = View.VISIBLE
+        parkingDurationSpinner.visibility = View.VISIBLE
+        renewalFrequencySpinner.visibility = View.VISIBLE
         
-        // Esconder labels
-        licensePlateLabel.visibility = View.GONE
-        parkingDurationLabel.visibility = View.GONE
-        renewalFrequencyLabel.visibility = View.GONE
+        // Mostrar labels novamente
+        licensePlateLabel.visibility = View.VISIBLE
+        parkingDurationLabel.visibility = View.VISIBLE
+        renewalFrequencyLabel.visibility = View.VISIBLE
+        
+        // Resetar labels para texto original
+        licensePlateLabel.text = "Placa do Veículo"
+        parkingDurationLabel.text = "Tempo de Estacionamento"
+        renewalFrequencyLabel.text = "Renovar a Cada"
+        
+        // Limpar campos de entrada
+        licensePlateInput.text.clear()
         
         // Esconder countdown
         countdownText.visibility = View.GONE
