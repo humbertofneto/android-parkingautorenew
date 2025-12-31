@@ -219,8 +219,11 @@ class AutoRenewActivity : AppCompatActivity() {
             val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
             prefs.edit().clear().apply()
             
-            // Fechar aplicação completamente
-            finish()
+            // Fechar aplicação completamente (remove da task stack)
+            finishAffinity()
+            // Alternativa mais agressiva se necessário:
+            // finishAndRemoveTask()
+            // System.exit(0)
         }
     }
 
