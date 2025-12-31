@@ -204,6 +204,22 @@ class AutoRenewActivity : AppCompatActivity() {
         }
 
         exitButton.setOnClickListener {
+            Log.d("AutoRenewActivity", "Exit button clicked")
+            
+            // Parar serviço se estiver rodando
+            if (isRunning) {
+                val serviceIntent = Intent(this, ParkingRenewalService::class.java)
+                serviceIntent.action = "STOP_AUTO_RENEW"
+                startService(serviceIntent)
+                
+                WorkManager.getInstance(this).cancelAllWorkByTag(renewalWorkTag)
+            }
+            
+            // Zerar todos os dados e contadores
+            val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+            prefs.edit().clear().apply()
+            
+            // Fechar aplicação completamente
             finish()
         }
     }
@@ -535,7 +551,18 @@ class AutoRenewActivity : AppCompatActivity() {
         totalTimeText.visibility = View.GONE
         statusText.visibility = View.GONE
         
-        // Esconder contadores temporariamente (aparecerão quando iniciar)
+        // Zerar e esconder contadores
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putInt("success_count", 0)
+            putInt("failure_count", 0)
+            remove("first_renewal_time")
+            remove("last_renewal_time")
+            apply()
+        }
+        
+        successCountText.text = "0"
+        failureCountText.text = "0"
         successCountText.visibility = View.GONE
         failureCountText.visibility = View.GONE
     }
