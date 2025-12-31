@@ -22,6 +22,7 @@ class ParkingAutomationManager(
     private var currentPage = 1
     private var parkingDuration = "1 Hour"
     private var isExecuting = false
+    private var successCalled = false  // Flag para evitar múltiplas chamadas
 
     fun start(plate: String, duration: String) {
         if (isExecuting) {
@@ -33,6 +34,7 @@ class ParkingAutomationManager(
         Log.d(TAG, "Plate: $plate, Duration: $duration")
 
         isExecuting = true
+        successCalled = false  // Reset flag para nova execução
         parkingDuration = duration
         currentPage = 1
 
@@ -423,10 +425,17 @@ class ParkingAutomationManager(
                     
                     // Automação concluída com sucesso
                     Log.d(TAG, "=== Automation completed successfully ===")
-                    isExecuting = false
                     
-                    Handler(Looper.getMainLooper()).post {
-                        onSuccess(confirmationDetails)
+                    // Evitar múltiplas chamadas de onSuccess
+                    if (!successCalled) {
+                        successCalled = true
+                        isExecuting = false
+                        
+                        Handler(Looper.getMainLooper()).post {
+                            onSuccess(confirmationDetails)
+                        }
+                    } else {
+                        Log.w(TAG, "onSuccess already called, ignoring duplicate")
                     }
                 }
             } catch (e: Exception) {

@@ -155,6 +155,7 @@ class AutoRenewActivity : AppCompatActivity() {
         Log.d("AutoRenewActivity", "Foreground service started")
 
         // Agendar a renovação periódica (backup com WorkManager)
+        // Mas NÃO executar a primeira renovação aqui - apenas a Activity executa
         schedulePeriodicRenewal(frequency)
 
         // Executar primeira renovação imediatamente na Activity
