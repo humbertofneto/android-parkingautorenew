@@ -177,9 +177,16 @@ class AutoRenewActivity : AppCompatActivity() {
 
     private fun setupButtonListeners() {
         startButton.setOnClickListener {
+            // Se o botão for "Start Again", resetar para tela inicial
+            if (startButton.text.toString().contains("Again")) {
+                resetToInitialState()
+                return@setOnClickListener
+            }
+            
             val plate = licensePlateInput.text.toString().trim()
             if (plate.isEmpty()) {
                 statusText.text = "Status: Por favor, insira a placa do veículo"
+                statusText.visibility = View.VISIBLE
                 return@setOnClickListener
             }
 
@@ -497,6 +504,40 @@ class AutoRenewActivity : AppCompatActivity() {
         }
 
         Log.d("AutoRenewActivity", "Auto-renew stopped, counters reset")
+    }
+    
+    private fun resetToInitialState() {
+        Log.d("AutoRenewActivity", "Resetting to initial state")
+        
+        // Voltar botão para estado original
+        startButton.text = "Start\nAuto-Renew"
+        startButton.isEnabled = true
+        
+        // Mostrar campos de entrada vazios
+        licensePlateInput.visibility = View.VISIBLE
+        parkingDurationSpinner.visibility = View.VISIBLE
+        renewalFrequencySpinner.visibility = View.VISIBLE
+        
+        // Mostrar labels
+        licensePlateLabel.visibility = View.VISIBLE
+        parkingDurationLabel.visibility = View.VISIBLE
+        renewalFrequencyLabel.visibility = View.VISIBLE
+        
+        // Resetar labels para texto original
+        licensePlateLabel.text = "Placa do Veículo"
+        parkingDurationLabel.text = "Tempo de Estacionamento"
+        renewalFrequencyLabel.text = "Renovar a Cada"
+        
+        // Limpar campo de placa
+        licensePlateInput.text.clear()
+        
+        // Esconder tempo total e status
+        totalTimeText.visibility = View.GONE
+        statusText.visibility = View.GONE
+        
+        // Esconder contadores temporariamente (aparecerão quando iniciar)
+        successCountText.visibility = View.GONE
+        failureCountText.visibility = View.GONE
     }
 
     private fun loadCounters() {
