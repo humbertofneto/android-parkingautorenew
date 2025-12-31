@@ -17,12 +17,15 @@ class ParkingAutomationManager(
         private const val REGION = "Alberta"
         private const val LOAD_DELAY = 2000L
         private const val STEP_DELAY = 1000L
+        private const val TIMEOUT_MILLIS = 60000L  // 60 segundos timeout
     }
 
     private var currentPage = 1
     private var parkingDuration = "1 Hour"
     private var isExecuting = false
     private var successCalled = false  // Flag para evitar múltiplas chamadas
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var timeoutRunnable: Runnable? = null
 
     fun start(plate: String, duration: String) {
         if (isExecuting) {
@@ -37,9 +40,32 @@ class ParkingAutomationManager(
         successCalled = false  // Reset flag para nova execução
         parkingDuration = duration
         currentPage = 1
+        
+        // Agendar timeout de segurança
+        setupTimeoutHandler()
 
         setupWebViewClient()
         webView.loadUrl(URL)
+    }
+    
+    private fun setupTimeoutHandler() {
+        // Remover timeout anterior se houver
+        timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        
+        timeoutRunnable = Runnable {
+            if (isExecuting && !successCalled) {
+                Log.e(TAG, "Automation timeout after ${TIMEOUT_MILLIS/1000}s")
+                isExecuting = false
+                onError("Timeout na automação (60 segundos)")
+            }
+        }
+        
+        mainHandler.postDelayed(timeoutRunnable!!, TIMEOUT_MILLIS)
+    }
+    
+    private fun cancelTimeoutHandler() {
+        timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        timeoutRunnable = null
     }
 
     private fun setupWebViewClient() {
@@ -48,6 +74,12 @@ class ParkingAutomationManager(
                 super.onPageFinished(view, url)
                 Log.d(TAG, "========== onPageFinished() ==========")
                 Log.d(TAG, "URL: $url, currentPage: $currentPage")
+                
+                // Ignorar carregamento de about:blank e após sucesso
+                if (url?.startsWith("about:") == true || successCalled || !isExecuting) {
+                    Log.d(TAG, "Ignoring page load (blank page or already completed)")
+                    return
+                }
                 
                 // Aguardar um pouco para garantir que a página está renderizada
                 Handler(Looper.getMainLooper()).postDelayed({
@@ -66,8 +98,8 @@ class ParkingAutomationManager(
 
     private fun captureAndProcessPage() {
         // Ignore if automation is already complete
-        if (successCalled) {
-            Log.d(TAG, "Automation already completed, ignoring page capture")
+        if (successCalled || !isExecuting) {
+            Log.d(TAG, "Automation already completed or not executing, ignoring page capture")
             return
         }
 
@@ -145,20 +177,32 @@ class ParkingAutomationManager(
 
     fun onPageReady(pageNumber: Int) {
         Log.d(TAG, "Page $pageNumber is ready")
+        
+        // Proteger contra chamadas após sucesso
+        if (successCalled || !isExecuting) {
+            Log.d(TAG, "Page ready called after automation complete, ignoring")
+            return
+        }
+        
         currentPage = pageNumber
 
         Handler(Looper.getMainLooper()).postDelayed({
-            when (currentPage) {
-                1 -> handlePage1()
-                2 -> handlePage2()
-                3 -> handlePage3()
-                4 -> handlePage4()
-                5 -> handlePage5()
-                else -> {
-                    Log.d(TAG, "Unknown page: $currentPage")
-                    isExecuting = false
-                    onError("Página desconhecida: $currentPage")
+            // Double-check se ainda estamos executando
+            if (!successCalled && isExecuting) {
+                when (currentPage) {
+                    1 -> handlePage1()
+                    2 -> handlePage2()
+                    3 -> handlePage3()
+                    4 -> handlePage4()
+                    5 -> handlePage5()
+                    else -> {
+                        Log.d(TAG, "Unknown page: $currentPage")
+                        isExecuting = false
+                        onError("Página desconhecida: $currentPage")
+                    }
                 }
+            } else {
+                Log.d(TAG, "Skipping page handler - automation already complete")
             }
         }, STEP_DELAY)
     }
@@ -335,6 +379,12 @@ class ParkingAutomationManager(
     private fun handlePage5() {
         Log.d(TAG, "Handling Page 5 (Email)")
         
+        // Proteção dupla: verificar se já foi completado
+        if (successCalled) {
+            Log.d(TAG, "Page 5 handler called but automation already completed, ignoring")
+            return
+        }
+        
         // Primeiro extrair os dados de confirmação
         val extractScript = """
             (function(){
@@ -438,6 +488,9 @@ class ParkingAutomationManager(
                         successCalled = true
                         isExecuting = false
                         
+                        // Cancelar timeout de segurança
+                        cancelTimeoutHandler()
+                        
                         // PARAR WebView imediatamente
                         Log.d(TAG, "Stopping WebView to prevent continuous reloading")
                         Handler(Looper.getMainLooper()).post {
@@ -485,6 +538,7 @@ class ParkingAutomationManager(
     fun stop() {
         Log.d(TAG, "Stopping automation")
         isExecuting = false
+        cancelTimeoutHandler()
         webView.stopLoading()
         webView.loadUrl("about:blank")
     }
