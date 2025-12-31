@@ -172,6 +172,21 @@
                 android:background="#FFFFFF"
                 android:layout_marginBottom="16dp" />
 
+            <!-- Countdown Timer -->
+            <TextView
+                android:id="@+id/countdownText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:gravity="center"
+                android:padding="16dp"
+                android:background="#E3F2FD"
+                android:visibility="gone"
+                android:layout_marginBottom="16dp" />
+
         </LinearLayout>
     </ScrollView>
 

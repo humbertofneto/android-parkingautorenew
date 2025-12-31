@@ -39,6 +39,7 @@ class AutoRenewActivity : AppCompatActivity() {
     private lateinit var licensePlateLabel: TextView
     private lateinit var parkingDurationLabel: TextView
     private lateinit var renewalFrequencyLabel: TextView
+    private lateinit var countdownText: TextView
 
     private var isRunning = false
     private var renewalWorkTag = "parking_auto_renew"
@@ -115,6 +116,7 @@ class AutoRenewActivity : AppCompatActivity() {
         licensePlateLabel = findViewById(R.id.licensePlateLabel)
         parkingDurationLabel = findViewById(R.id.parkingDurationLabel)
         renewalFrequencyLabel = findViewById(R.id.renewalFrequencyLabel)
+        countdownText = findViewById(R.id.countdownText)
 
         setupAutomationWebView()
         setupSpinners()
@@ -329,12 +331,11 @@ class AutoRenewActivity : AppCompatActivity() {
             |Expiry: ${details.expiryTime}
             |Placa: ${details.plate}
             |Local: ${details.location}
-            |Confirmação #: ${details.confirmationNumber}
-            |
-            |━━━━━━━━━━━━━━━━━━━━━━━━━━
-            |⏱  PRÓXIMA RENOVAÇÃO EM
-            |   calculando...
-            |━━━━━━━━━━━━━━━━━━━━━━━━━━""".trimMargin()
+            |Confirmação #: ${details.confirmationNumber}""".trimMargin()
+        
+        // Mostrar o countdown separado
+        countdownText.visibility = View.VISIBLE
+        countdownText.text = "⏱ Próxima renovação em: calculando..."
     }
     
     private fun startCountdownTimer() {
@@ -378,7 +379,7 @@ class AutoRenewActivity : AppCompatActivity() {
             val minutes = (remainingMillis / 1000 / 60).toInt()
             val seconds = ((remainingMillis / 1000) % 60).toInt()
             
-            // Atualizar apenas a linha do countdown
+            // Atualizar status text (sem countdown)
             lastConfirmationDetails?.let { details ->
                 statusText.text = """Status: Auto-Renew ativo
                     |Última renovação: $elapsedText
@@ -388,13 +389,12 @@ class AutoRenewActivity : AppCompatActivity() {
                     |Expiry: ${details.expiryTime}
                     |Placa: ${details.plate}
                     |Local: ${details.location}
-                    |Confirmação #: ${details.confirmationNumber}
-                    |
-                    |━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    |⏱  PRÓXIMA RENOVAÇÃO EM
-                    |   ${minutes} min ${seconds} seg
-                    |━━━━━━━━━━━━━━━━━━━━━━━━━━""".trimMargin()
+                    |Confirmação #: ${details.confirmationNumber}""".trimMargin()
             }
+            
+            // Atualizar countdown separado
+            countdownText.visibility = View.VISIBLE
+            countdownText.text = "⏱ Próxima renovação em: ${minutes} min ${seconds} seg"
             
             // Agendar próxima atualização em 1 segundo
             countdownHandler.postDelayed({ updateCountdown() }, 1000)
@@ -418,8 +418,11 @@ class AutoRenewActivity : AppCompatActivity() {
         
         // Resetar labels para texto original
         licensePlateLabel.text = "Placa do Veículo"
-        renewalFrequencyLabel.text = "Renovar a Cada"
         parkingDurationLabel.text = "Tempo de Estacionamento"
+        renewalFrequencyLabel.text = "Renovar a Cada"
+        
+        // Esconder countdown
+        countdownText.visibility = View.GONE
 
         // Obter estatísticas
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
