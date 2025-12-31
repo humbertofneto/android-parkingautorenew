@@ -37,7 +37,7 @@ class ParkingRenewalService : Service() {
         Log.d(TAG, "Service onCreate()")
         
         createNotificationChannel()
-        setupWebView()
+        // NÃO criar WebView aqui - criar novo para cada renovação
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -90,7 +90,7 @@ class ParkingRenewalService : Service() {
             cacheMode = WebSettings.LOAD_DEFAULT
         }
         
-        Log.d(TAG, "WebView configured for background automation")
+        Log.d(TAG, "WebView created for new renewal")
     }
     
     private fun startAutoRenew() {
@@ -141,6 +141,10 @@ class ParkingRenewalService : Service() {
         }
         
         updateNotification("Executando renovação", "Placa: $plate")
+        
+        // Criar um novo WebView para esta renovação
+        Log.d(TAG, "Creating new WebView for this renewal")
+        setupWebView()
         
         automationManager = ParkingAutomationManager(
             webView,
