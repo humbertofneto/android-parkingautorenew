@@ -1,11 +1,13 @@
 package com.example.parkingautorenew
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.BroadcastReceiver
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -22,12 +24,18 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import java.text.SimpleDateFormat
 
 class AutoRenewActivity : AppCompatActivity() {
+    
+    companion object {
+        private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
+    }
     private lateinit var licensePlateInput: EditText
     private lateinit var parkingDurationSpinner: Spinner
     private lateinit var renewalFrequencySpinner: Spinner
@@ -141,6 +149,9 @@ class AutoRenewActivity : AppCompatActivity() {
         // Esconder contadores na tela inicial (não há operações ainda)
         countersLayout.visibility = View.GONE
         
+        // Solicitar permissão de notificação para Android 13+
+        requestNotificationPermission()
+        
         // Registrar BroadcastReceiver para atualizações do Service
         val filter = IntentFilter().apply {
             addAction("RENEWAL_START")
@@ -155,6 +166,25 @@ class AutoRenewActivity : AppCompatActivity() {
         Log.d("AutoRenewActivity", "BroadcastReceiver registered")
 
         Log.d("AutoRenewActivity", "=== onCreate() COMPLETE ===")
+    }
+    
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+                Log.d("AutoRenewActivity", "Requesting notification permission")
+            } else {
+                Log.d("AutoRenewActivity", "Notification permission already granted")
+            }
+        }
     }
 
     private fun setupAutomationWebView() {
