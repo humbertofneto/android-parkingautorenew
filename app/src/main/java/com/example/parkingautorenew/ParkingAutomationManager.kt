@@ -65,6 +65,12 @@ class ParkingAutomationManager(
     }
 
     private fun captureAndProcessPage() {
+        // Ignore if automation is already complete
+        if (successCalled) {
+            Log.d(TAG, "Automation already completed, ignoring page capture")
+            return
+        }
+
         Log.d(TAG, "Capturing current page")
 
         val script = """
