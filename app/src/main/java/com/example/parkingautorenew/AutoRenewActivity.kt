@@ -582,9 +582,12 @@ class AutoRenewActivity : AppCompatActivity() {
         // Limpar campo de placa
         licensePlateInput.text.clear()
         
-        // Esconder tempo total e status
+        // Esconder tempo total
         totalTimeText.visibility = View.GONE
-        statusText.visibility = View.GONE
+        
+        // Mostrar status inicial
+        statusText.visibility = View.VISIBLE
+        statusText.text = "Status: Aguardando configuração"
         
         // Zerar e esconder contadores
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
