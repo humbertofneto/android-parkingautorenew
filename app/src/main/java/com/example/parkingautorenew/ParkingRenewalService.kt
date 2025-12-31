@@ -195,6 +195,14 @@ class ParkingRenewalService : Service() {
             }
         )
         
+        // Enviar broadcast indicando que a renovação está começando
+        val startIntent = Intent("RENEWAL_START").apply {
+            putExtra("plate", plate)
+            putExtra("timestamp", System.currentTimeMillis())
+        }
+        sendBroadcast(startIntent)
+        Log.d(TAG, "Broadcast sent: RENEWAL_START")
+        
         Log.d(TAG, "Starting automation with plate=$plate, duration=$duration")
         automationManager?.start(plate, duration)
         Log.d(TAG, "automationManager.start() called")

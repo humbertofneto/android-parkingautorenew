@@ -46,7 +46,11 @@ class AutoRenewActivity : AppCompatActivity() {
     // BroadcastReceiver para receber notificações do Service
     private val renewalBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "RENEWAL_UPDATE") {
+            if (intent?.action == "RENEWAL_START") {
+                val plate = intent.getStringExtra("plate") ?: "desconhecida"
+                Log.d("AutoRenewActivity", "Broadcast received: RENEWAL_START")
+                statusText.text = "Status: Executando renovação...\nPlaca: $plate"
+            } else if (intent?.action == "RENEWAL_UPDATE") {
                 val status = intent.getStringExtra("status") ?: "unknown"
                 val confirmation = intent.getStringExtra("confirmation") ?: ""
                 
@@ -105,7 +109,10 @@ class AutoRenewActivity : AppCompatActivity() {
         loadCounters()
         
         // Registrar BroadcastReceiver para atualizações do Service
-        val filter = IntentFilter("RENEWAL_UPDATE")
+        val filter = IntentFilter().apply {
+            addAction("RENEWAL_START")
+            addAction("RENEWAL_UPDATE")
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(renewalBroadcastReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
