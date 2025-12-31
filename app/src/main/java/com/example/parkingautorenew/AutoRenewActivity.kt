@@ -129,6 +129,7 @@ class AutoRenewActivity : AppCompatActivity() {
         setupSpinners()
         createNotificationChannel()
         setupButtonListeners()
+        setupLicensePlateInput()
         
         // Inicializar contadores com valores zerados
         successCountText.text = "0"
@@ -169,6 +170,26 @@ class AutoRenewActivity : AppCompatActivity() {
         automationWebView.addJavascriptInterface(AutomationBridge(), "Android")
         
         Log.d("AutoRenewActivity", "Automation WebView configured")
+    }
+    
+    private fun setupLicensePlateInput() {
+        // Converter todas as letras para maiúsculas automaticamente
+        licensePlateInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            
+            override fun afterTextChanged(s: android.text.Editable?) {
+                s?.let {
+                    val uppercase = it.toString().uppercase()
+                    if (it.toString() != uppercase) {
+                        licensePlateInput.removeTextChangedListener(this)
+                        it.replace(0, it.length, uppercase)
+                        licensePlateInput.addTextChangedListener(this)
+                    }
+                }
+            }
+        })
     }
 
     private fun setupSpinners() {
