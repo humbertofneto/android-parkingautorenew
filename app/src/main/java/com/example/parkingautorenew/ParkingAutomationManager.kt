@@ -630,7 +630,15 @@ class ParkingAutomationManager(
                         
                       } else if (checkCount >= 20) {
                         clearInterval(checkInterval);
-                        console.log('Timeout esperando SEND enabled');
+                        console.log('Timeout esperando SEND enabled - clicando DONE mesmo assim');
+                        // Fallback: clicar DONE mesmo se SEND não ficou enabled
+                        const doneButton = Array.from(document.querySelectorAll('button')).find(b => 
+                          b.textContent.trim().toUpperCase() === 'DONE' && b.offsetParent !== null
+                        );
+                        if (doneButton) {
+                          doneButton.click();
+                          console.log('DONE clicado (fallback)');
+                        }
                       } else {
                         console.log('Check #' + checkCount + ': SEND ainda disabled');
                       }
@@ -653,9 +661,10 @@ class ParkingAutomationManager(
             Log.d(TAG, "Email script result: $result")
             
             // Aguardar tempo suficiente para completar todo o processo
+            // 500ms + 10s polling + 3s após SEND = até 13.5s
             Handler(Looper.getMainLooper()).postDelayed({
                 completeAutomation(confirmationDetails)
-            }, 5000)
+            }, 15000)
         }
     }
     
