@@ -331,7 +331,10 @@ class AutoRenewActivity : AppCompatActivity() {
             |Local: ${details.location}
             |Confirmação #: ${details.confirmationNumber}
             |
-            |⏱ Próxima renovação: calculando...""".trimMargin()
+            |━━━━━━━━━━━━━━━━━━━━━━━━━━
+            |⏱  PRÓXIMA RENOVAÇÃO EM
+            |   calculando...
+            |━━━━━━━━━━━━━━━━━━━━━━━━━━""".trimMargin()
     }
     
     private fun startCountdownTimer() {
@@ -387,7 +390,10 @@ class AutoRenewActivity : AppCompatActivity() {
                     |Local: ${details.location}
                     |Confirmação #: ${details.confirmationNumber}
                     |
-                    |⏱ Próxima renovação em: ${minutes}min ${seconds}s""".trimMargin()
+                    |━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    |⏱  PRÓXIMA RENOVAÇÃO EM
+                    |   ${minutes} min ${seconds} seg
+                    |━━━━━━━━━━━━━━━━━━━━━━━━━━""".trimMargin()
             }
             
             // Agendar próxima atualização em 1 segundo
