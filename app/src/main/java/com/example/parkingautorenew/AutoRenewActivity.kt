@@ -35,11 +35,13 @@ class AutoRenewActivity : AppCompatActivity() {
     private lateinit var failureCountText: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
+    private lateinit var exitButton: Button
     private lateinit var automationWebView: WebView
     private lateinit var licensePlateLabel: TextView
     private lateinit var parkingDurationLabel: TextView
     private lateinit var renewalFrequencyLabel: TextView
     private lateinit var countdownText: TextView
+    private lateinit var totalTimeText: TextView
 
     private var isRunning = false
     private var renewalWorkTag = "parking_auto_renew"
@@ -111,8 +113,10 @@ class AutoRenewActivity : AppCompatActivity() {
         statusText = findViewById(R.id.statusText)
         successCountText = findViewById(R.id.successCountText)
         failureCountText = findViewById(R.id.failureCountText)
+        totalTimeText = findViewById(R.id.totalTimeText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
+        exitButton = findViewById(R.id.exitButton)
         licensePlateLabel = findViewById(R.id.licensePlateLabel)
         parkingDurationLabel = findViewById(R.id.parkingDurationLabel)
         renewalFrequencyLabel = findViewById(R.id.renewalFrequencyLabel)
@@ -190,6 +194,10 @@ class AutoRenewActivity : AppCompatActivity() {
         stopButton.setOnClickListener {
             Log.d("AutoRenewActivity", "Stop button clicked")
             stopAutoRenew()
+        }
+
+        exitButton.setOnClickListener {
+            finish()
         }
     }
 
@@ -432,7 +440,7 @@ class AutoRenewActivity : AppCompatActivity() {
         val lastRenewalTime = prefs.getLong("last_renewal_time", 0)
         
         // Calcular tempo total
-        val totalTimeText = if (firstRenewalTime > 0 && lastRenewalTime > 0) {
+        val totalTimeValue = if (firstRenewalTime > 0 && lastRenewalTime > 0) {
             val totalMillis = lastRenewalTime - firstRenewalTime
             val hours = (totalMillis / 1000 / 60 / 60).toInt()
             val minutes = ((totalMillis / 1000 / 60) % 60).toInt()
@@ -446,13 +454,16 @@ class AutoRenewActivity : AppCompatActivity() {
             "N/A"
         }
         
-        // Exibir resumo
+        // Exibir resumo no statusText (sem tempo total)
         statusText.text = """Status: Auto-Renew parado
             |
             |═══ RESUMO ═══
             |✅ Renovações bem-sucedidas: $successCount
-            |❌ Falhas: $failureCount
-            |⏱ Tempo total de estacionamento: $totalTimeText""".trimMargin()
+            |❌ Falhas: $failureCount""".trimMargin()
+        
+        // Mostrar tempo total em TextView separado (como o countdown)
+        totalTimeText.visibility = View.VISIBLE
+        totalTimeText.text = "⏱ Tempo total estacionado: $totalTimeValue"
         
         // Parar Foreground Service
         val serviceIntent = Intent(this, ParkingRenewalService::class.java)

@@ -189,6 +189,23 @@
                 android:singleLine="true"
                 android:ellipsize="none" />
 
+            <!-- Total Parking Time (shown when stopped) -->
+            <TextView
+                android:id="@+id/totalTimeText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#F57C00"
+                android:gravity="center"
+                android:padding="8dp"
+                android:background="#FFF3E0"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp"
+                android:singleLine="true"
+                android:ellipsize="none" />
+
         </LinearLayout>
     </ScrollView>
 
@@ -213,7 +230,7 @@
             android:textStyle="bold"
             android:textColor="#FFFFFF"
             android:backgroundTint="#4CAF50"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="4dp" />
 
         <Button
             android:id="@+id/stopButton"
@@ -226,7 +243,20 @@
             android:textColor="#FFFFFF"
             android:backgroundTint="#F44336"
             android:enabled="false"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp" />
+
+        <Button
+            android:id="@+id/exitButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="Exit"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#757575"
+            android:layout_marginStart="4dp" />
 
     </LinearLayout>
 
