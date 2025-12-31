@@ -42,6 +42,7 @@ class AutoRenewActivity : AppCompatActivity() {
     private lateinit var renewalFrequencyLabel: TextView
     private lateinit var countdownText: TextView
     private lateinit var totalTimeText: TextView
+    private lateinit var countersLayout: LinearLayout
 
     private var isRunning = false
     private var renewalWorkTag = "parking_auto_renew"
@@ -121,13 +122,14 @@ class AutoRenewActivity : AppCompatActivity() {
         parkingDurationLabel = findViewById(R.id.parkingDurationLabel)
         renewalFrequencyLabel = findViewById(R.id.renewalFrequencyLabel)
         countdownText = findViewById(R.id.countdownText)
+        countersLayout = findViewById(R.id.countersLayout)
 
         setupAutomationWebView()
         setupSpinners()
         createNotificationChannel()
         setupButtonListeners()
         
-        // Inicializar contadores com valores zerados (escondidos)
+        // Inicializar contadores com valores zerados
         successCountText.text = "0"
         failureCountText.text = "0"
         
@@ -135,8 +137,7 @@ class AutoRenewActivity : AppCompatActivity() {
         stopButton.visibility = View.GONE
         
         // Esconder contadores na tela inicial (não há operações ainda)
-        successCountText.visibility = View.GONE
-        failureCountText.visibility = View.GONE
+        countersLayout.visibility = View.GONE
         
         // Registrar BroadcastReceiver para atualizações do Service
         val filter = IntentFilter().apply {
@@ -260,8 +261,7 @@ class AutoRenewActivity : AppCompatActivity() {
         statusText.visibility = View.VISIBLE
         
         // Mostrar contadores
-        successCountText.visibility = View.VISIBLE
-        failureCountText.visibility = View.VISIBLE
+        countersLayout.visibility = View.VISIBLE
         
         // Zerar contadores para nova reserva
         successCountText.text = "0"
@@ -576,8 +576,7 @@ class AutoRenewActivity : AppCompatActivity() {
         
         successCountText.text = "0"
         failureCountText.text = "0"
-        successCountText.visibility = View.GONE
-        failureCountText.visibility = View.GONE
+        countersLayout.visibility = View.GONE
         
         // Esconder botão STOP (não há renovação rodando)
         stopButton.visibility = View.GONE
