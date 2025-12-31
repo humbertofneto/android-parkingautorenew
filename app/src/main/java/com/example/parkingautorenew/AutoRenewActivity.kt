@@ -220,9 +220,25 @@ class AutoRenewActivity : AppCompatActivity() {
         renewalFrequencyLabel.text = "Renovar a Cada: $frequency"
 
         statusText.text = "Status: Auto-Renew ativo\nPlaca: $plate\nDuração: $duration\nRenovação: a cada $frequency"
+        statusText.visibility = View.VISIBLE
+        
+        // Mostrar contadores
+        successCountText.visibility = View.VISIBLE
+        failureCountText.visibility = View.VISIBLE
+        
+        // Zerar contadores para nova reserva
+        successCountText.text = "0"
+        failureCountText.text = "0"
 
         // Guardar configurações para o background service usar
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        
+        // Zerar contadores nas preferências para nova reserva
+        prefs.edit().apply {
+            putInt("success_count", 0)
+            putInt("failure_count", 0)
+            apply()
+        }
         
         // Salvar timestamp da primeira renovação se não existir
         if (!prefs.contains("first_renewal_time")) {
@@ -433,40 +449,11 @@ class AutoRenewActivity : AppCompatActivity() {
         
         // Esconder countdown
         countdownText.visibility = View.GONE
+        
+        // Esconder resumo e tempo total
+        statusText.visibility = View.GONE
+        totalTimeText.visibility = View.GONE
 
-        // Obter estatísticas
-        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-        val successCount = prefs.getInt("success_count", 0)
-        val failureCount = prefs.getInt("failure_count", 0)
-        val firstRenewalTime = prefs.getLong("first_renewal_time", 0)
-        val lastRenewalTime = prefs.getLong("last_renewal_time", 0)
-        
-        // Calcular tempo total
-        val totalTimeValue = if (firstRenewalTime > 0 && lastRenewalTime > 0) {
-            val totalMillis = lastRenewalTime - firstRenewalTime
-            val hours = (totalMillis / 1000 / 60 / 60).toInt()
-            val minutes = ((totalMillis / 1000 / 60) % 60).toInt()
-            
-            when {
-                hours > 0 -> "${hours}h ${minutes}min"
-                minutes > 0 -> "${minutes}min"
-                else -> "menos de 1 minuto"
-            }
-        } else {
-            "N/A"
-        }
-        
-        // Exibir resumo no statusText (sem tempo total)
-        statusText.text = """Status: Auto-Renew parado
-            |
-            |═══ RESUMO ═══
-            |✅ Renovações bem-sucedidas: $successCount
-            |❌ Falhas: $failureCount""".trimMargin()
-        
-        // Mostrar tempo total em TextView separado (como o countdown)
-        totalTimeText.visibility = View.VISIBLE
-        totalTimeText.text = "⏱ Tempo total estacionado: $totalTimeValue"
-        
         // Parar Foreground Service
         val serviceIntent = Intent(this, ParkingRenewalService::class.java)
         serviceIntent.action = "STOP_AUTO_RENEW"
@@ -475,19 +462,16 @@ class AutoRenewActivity : AppCompatActivity() {
         // Cancelar work agendado
         WorkManager.getInstance(this).cancelAllWorkByTag(renewalWorkTag)
 
-        // Zerar contadores e limpar preferências
+        // Manter contadores visíveis - NÃO zerar aqui
+        // Os contadores serão zerados apenas ao pressionar START para nova reserva
+        
+        // Limpar apenas flags e timestamps, mantendo os contadores
         prefs.edit().apply {
             putBoolean("auto_renew_enabled", false)
-            putInt("success_count", 0)
-            putInt("failure_count", 0)
             remove("first_renewal_time")
             remove("last_renewal_time")
             apply()
         }
-        
-        // Atualizar UI dos contadores
-        successCountText.text = "0"
-        failureCountText.text = "0"
 
         Log.d("AutoRenewActivity", "Auto-renew stopped, counters reset")
     }
