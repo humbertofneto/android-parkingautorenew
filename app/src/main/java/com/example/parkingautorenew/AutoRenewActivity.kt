@@ -38,6 +38,7 @@ class AutoRenewActivity : AppCompatActivity() {
     private lateinit var automationWebView: WebView
     private lateinit var licensePlateLabel: TextView
     private lateinit var parkingDurationLabel: TextView
+    private lateinit var renewalFrequencyLabel: TextView
 
     private var isRunning = false
     private var renewalWorkTag = "parking_auto_renew"
@@ -106,6 +107,7 @@ class AutoRenewActivity : AppCompatActivity() {
         stopButton = findViewById(R.id.stopButton)
         licensePlateLabel = findViewById(R.id.licensePlateLabel)
         parkingDurationLabel = findViewById(R.id.parkingDurationLabel)
+        renewalFrequencyLabel = findViewById(R.id.renewalFrequencyLabel)
 
         setupAutomationWebView()
         setupSpinners()
@@ -197,6 +199,7 @@ class AutoRenewActivity : AppCompatActivity() {
         // Atualizar labels com os valores escolhidos
         licensePlateLabel.text = "Placa do Veículo: $plate"
         parkingDurationLabel.text = "Tempo de Estacionamento: $duration"
+        renewalFrequencyLabel.text = "Renovar a Cada: $frequency"
 
         statusText.text = "Status: Auto-Renew ativo\nPlaca: $plate\nDuração: $duration\nRenovação: a cada $frequency"
 
@@ -402,6 +405,7 @@ class AutoRenewActivity : AppCompatActivity() {
         
         // Resetar labels para texto original
         licensePlateLabel.text = "Placa do Veículo"
+        renewalFrequencyLabel.text = "Renovar a Cada"
         parkingDurationLabel.text = "Tempo de Estacionamento"
 
         // Obter estatísticas
