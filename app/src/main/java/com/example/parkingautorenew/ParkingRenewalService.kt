@@ -30,7 +30,9 @@ class ParkingRenewalService : Service() {
     private lateinit var webView: WebView
     private var automationManager: ParkingAutomationManager? = null
     private val renewalHandler = Handler(Looper.getMainLooper())
+    private val notificationUpdateHandler = Handler(Looper.getMainLooper())
     private var isRunning = false
+    private var nextRenewalTimeMillis: Long = 0
     
     override fun onCreate() {
         super.onCreate()
@@ -102,10 +104,13 @@ class ParkingRenewalService : Service() {
         isRunning = true
         
         // Criar notificação de foreground
-        val notification = createNotification("Auto-Renew ativo", "Monitorando renovações...")
+        val notification = createNotification("Auto-Renew ativo", "Inicializando...")
         startForeground(NOTIFICATION_ID, notification)
         
         Log.d(TAG, "Auto-renew started in foreground")
+        
+        // Iniciar atualização periódica da notificação
+        startNotificationUpdates()
         
         // Agendar próximas renovações
         // (Activity executará a primeira renovação)
@@ -226,6 +231,9 @@ class ParkingRenewalService : Service() {
         
         Log.d(TAG, "Scheduling next renewal in ${delayMillis / 1000 / 60} minutes")
         
+        // Armazenar tempo da próxima renovação
+        nextRenewalTimeMillis = System.currentTimeMillis() + delayMillis
+        
         // Usar AlarmManager para garantir execução mesmo em background
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, ParkingRenewalService::class.java).apply {
@@ -288,6 +296,7 @@ class ParkingRenewalService : Service() {
         
         isRunning = false
         renewalHandler.removeCallbacksAndMessages(null)
+        notificationUpdateHandler.removeCallbacksAndMessages(null)
         
         // Cancel any pending AlarmManager alarms
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -339,9 +348,40 @@ class ParkingRenewalService : Service() {
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
     
+    private fun startNotificationUpdates() {
+        notificationUpdateHandler.post(object : Runnable {
+            override fun run() {
+                if (isRunning) {
+                    updateNotificationWithCountdown()
+                    // Atualizar a cada 30 segundos
+                    notificationUpdateHandler.postDelayed(this, 30000)
+                }
+            }
+        })
+    }
+    
+    private fun updateNotificationWithCountdown() {
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val successCount = prefs.getInt("success_count", 0)
+        val failureCount = prefs.getInt("failure_count", 0)
+        
+        val timeRemaining = nextRenewalTimeMillis - System.currentTimeMillis()
+        
+        val content = if (timeRemaining > 0) {
+            val minutes = (timeRemaining / 1000 / 60).toInt()
+            val seconds = ((timeRemaining / 1000) % 60).toInt()
+            "Próxima em: ${minutes}min ${seconds}s | ✓$successCount ✗$failureCount"
+        } else {
+            "Executando renovação... | ✓$successCount ✗$failureCount"
+        }
+        
+        updateNotification("Auto-Renew ativo", content)
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Service onDestroy()")
         renewalHandler.removeCallbacksAndMessages(null)
+        notificationUpdateHandler.removeCallbacksAndMessages(null)
     }
 }
