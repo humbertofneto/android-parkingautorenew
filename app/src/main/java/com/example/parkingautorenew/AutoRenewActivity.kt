@@ -126,7 +126,10 @@ class AutoRenewActivity : AppCompatActivity() {
         setupSpinners()
         createNotificationChannel()
         setupButtonListeners()
-        loadCounters()
+        
+        // Inicializar contadores com valores zerados (escondidos)
+        successCountText.text = "0"
+        failureCountText.text = "0"
         
         // Esconder botão STOP na tela inicial (não há renovação rodando)
         stopButton.visibility = View.GONE
