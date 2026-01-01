@@ -26,6 +26,8 @@ class ParkingRenewalService : Service() {
         private const val CHANNEL_NAME = "Parking Auto Renew"
         private const val SUCCESS_CHANNEL_ID = "parking_success_channel"
         private const val SUCCESS_CHANNEL_NAME = "Renovações Concluídas"
+        private const val ERROR_CHANNEL_ID = "parking_error_channel"
+        private const val ERROR_CHANNEL_NAME = "Erros de Renovação"
         private const val ALARM_REQUEST_CODE = 1234
     }
     
@@ -93,6 +95,18 @@ class ParkingRenewalService : Service() {
                 enableLights(true)
             }
             notificationManager.createNotificationChannel(successChannel)
+            
+            // Canal para notificações de erro
+            val errorChannel = NotificationChannel(
+                ERROR_CHANNEL_ID,
+                ERROR_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Notificações quando renovação falha"
+                enableVibration(true)
+                enableLights(true)
+            }
+            notificationManager.createNotificationChannel(errorChannel)
             
             Log.d(TAG, "Notification channels created")
         }
@@ -176,8 +190,7 @@ class ParkingRenewalService : Service() {
                     "Expira: ${confirmationDetails.expiryTime}"
                 )
                 
-                // Enviar notificação de sucesso separada
-                sendSuccessNotification(confirmationDetails)
+                // Notificação de sucesso removida - apenas popup em caso de falha
                 
                 // Salvar última confirmação
                 prefs.edit().apply {
@@ -207,6 +220,9 @@ class ParkingRenewalService : Service() {
                 Log.e(TAG, "========== Service: Renewal ERROR ==========")
                 Log.e(TAG, "Error: $error")
                 updateNotification("Erro na renovação", error)
+                
+                // Enviar notificação popup de erro
+                sendErrorNotification(error)
                 
                 // Enviar broadcast de erro para a Activity
                 val intent = Intent("RENEWAL_UPDATE").apply {
@@ -432,6 +448,35 @@ class ParkingRenewalService : Service() {
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
         
         Log.d(TAG, "Success notification sent")
+    }
+    
+    private fun sendErrorNotification(errorMessage: String) {
+        val intent = Intent(this, AutoRenewActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            System.currentTimeMillis().toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val notification = NotificationCompat.Builder(this, ERROR_CHANNEL_ID)
+            .setContentTitle("❌ Falha na renovação")
+            .setContentText(errorMessage)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText("Erro ao renovar o estacionamento:\n\n$errorMessage")
+            )
+            .setSmallIcon(R.drawable.ic_parking)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .build()
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        
+        Log.d(TAG, "Error notification sent")
     }
     
     override fun onDestroy() {
