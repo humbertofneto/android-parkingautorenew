@@ -230,7 +230,8 @@ class AutoRenewActivity : AppCompatActivity() {
         emailCheckbox.visibility = View.GONE
         emailInput.visibility = View.GONE
         
-        // Esconder labels dos inputs
+        // ✅ Esconder TODAS as labels dos inputs (incluindo licensePlateLabel!)
+        licensePlateLabel.visibility = View.GONE
         parkingDurationLabel.visibility = View.GONE
         renewalFrequencyLabel.visibility = View.GONE
         
@@ -243,11 +244,37 @@ class AutoRenewActivity : AppCompatActivity() {
         successCountText.text = successCount.toString()
         failureCountText.text = failureCount.toString()
         
+        // ✅ Restaurar última confirmação se existir
+        val lastPlate = prefs.getString("last_plate", null)
+        val lastStartTime = prefs.getString("last_start_time", null)
+        val lastExpiryTime = prefs.getString("last_expiry_time", null)
+        val lastLocation = prefs.getString("last_location", null)
+        val lastConfirmation = prefs.getString("last_confirmation_number", null)
+        val nextRenewalTime = prefs.getLong("next_renewal_time", 0)
+        
         // Mostrar status
         statusText.visibility = View.VISIBLE
-        statusText.text = "Status: Sessão restaurada após crash\n\nReconectando ao serviço..."
+        if (lastPlate != null && successCount > 0) {
+            statusText.text = """Status: ✅ Sessão Restaurada (rodando em background)
+                |
+                |═══ ÚLTIMA CONFIRMAÇÃO ═══
+                |Start: ${lastStartTime ?: "N/A"}
+                |Expiry: ${lastExpiryTime ?: "N/A"}
+                |Placa: $lastPlate
+                |Local: ${lastLocation ?: "N/A"}
+                |Confirmação #: ${lastConfirmation ?: "N/A"}""".trimMargin()
+        } else {
+            statusText.text = "Status: ⏳ Sessão Restaurada\n\nAguardando primeira renovação..."
+        }
         
-        Log.d("AutoRenewActivity", "UI restored - successCount=$successCount, failureCount=$failureCount")
+        // ✅ Restaurar countdown se houver próxima renovação agendada
+        if (nextRenewalTime > 0) {
+            nextRenewalTimeMillis = nextRenewalTime
+            countdownText.visibility = View.VISIBLE
+            startCountdownTimer()
+        }
+        
+        Log.d("AutoRenewActivity", "UI restored - successCount=$successCount, failureCount=$failureCount, nextRenewal=$nextRenewalTime")
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -600,6 +627,17 @@ class AutoRenewActivity : AppCompatActivity() {
             |Local: ${details.location}
             |Confirmação #: ${details.confirmationNumber}""".trimMargin()
         
+        // ✅ Salvar última confirmação em SharedPreferences para RECOVERY
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("last_plate", details.plate)
+            putString("last_start_time", details.startTime)
+            putString("last_expiry_time", details.expiryTime)
+            putString("last_location", details.location)
+            putString("last_confirmation_number", details.confirmationNumber)
+            apply()
+        }
+        
         // ✅ Atualizar licensePlateLabel com a placa extraída do HTML (para validar se é a mesma)
         licensePlateLabel.visibility = View.VISIBLE
         licensePlateLabel.text = "Placa do Veículo: ${details.plate}"
@@ -624,6 +662,11 @@ class AutoRenewActivity : AppCompatActivity() {
         }
         
         nextRenewalTimeMillis = System.currentTimeMillis() + intervalMillis
+        
+        // ✅ Salvar nextRenewalTime para RECOVERY
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putLong("next_renewal_time", nextRenewalTimeMillis).apply()
+        
         updateCountdown()
     }
     
