@@ -514,6 +514,10 @@ class AutoRenewActivity : AppCompatActivity() {
             |Local: ${details.location}
             |Confirmação #: ${details.confirmationNumber}""".trimMargin()
         
+        // ✅ Atualizar licensePlateLabel com a placa extraída do HTML (para validar se é a mesma)
+        licensePlateLabel.visibility = View.VISIBLE
+        licensePlateLabel.text = "Placa do Veículo: ${details.plate}"
+        
         // Mostrar o countdown separado
         countdownText.visibility = View.VISIBLE
         countdownText.text = "⏱ Próxima renovação em: calculando..."
@@ -600,8 +604,8 @@ class AutoRenewActivity : AppCompatActivity() {
         parkingDurationSpinner.visibility = View.GONE
         renewalFrequencySpinner.visibility = View.GONE
         
-        // ESCONDER labels dos campos
-        licensePlateLabel.visibility = View.GONE
+        // ESCONDER labels dos campos de ENTRADA (mas manter licensePlateLabel visível para validação)
+        // licensePlateLabel será atualizado dinamicamente com a placa extraída do HTML
         parkingDurationLabel.visibility = View.GONE
         renewalFrequencyLabel.visibility = View.GONE
         
