@@ -362,7 +362,9 @@ class ParkingRenewalService : Service() {
     }
     
     private fun createNotification(title: String, content: String): Notification {
-        val intent = Intent(this, AutoRenewActivity::class.java)
+        // ✅ Abrir MainActivity (não AutoRenewActivity) para respeitar singleTask
+        // MainActivity.onNewIntent() irá redirecionar para AutoRenewActivity se sessão estiver ativa
+        val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
