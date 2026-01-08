@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.util.Log
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -37,10 +38,20 @@ class ParkingRenewalService : Service() {
     private val notificationUpdateHandler = Handler(Looper.getMainLooper())
     private var isRunning = false
     private var nextRenewalTimeMillis: Long = 0
+    private var wakeLock: PowerManager.WakeLock? = null
     
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service onCreate()")
+        
+        // ✅ Adquirir WakeLock para garantir que Service nunca durma
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "parkingautorenew:service_wakelock"
+        )
+        wakeLock?.acquire()
+        Log.d(TAG, "Service WakeLock acquired - Service will NEVER sleep!")
         
         createNotificationChannel()
         // NÃO criar WebView aqui - criar novo para cada renovação
@@ -63,9 +74,9 @@ class ParkingRenewalService : Service() {
             }
         }
         
-        // ✅ START_STICKY = Android irá recriar service se for morto
+        // ✅ START_REDELIVER_INTENT = Se Android matar o service, ele será recriado com o último Intent
         // ✅ Manter foreground notification sempre ativa
-        return START_STICKY
+        return START_REDELIVER_INTENT
     }
     
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -493,7 +504,14 @@ class ParkingRenewalService : Service() {
     
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "Service onDestroy()")
+        Log.d(TAG, "Service onDestroy() - This should NEVER happen during active session!")
+        
+        // Liberar WakeLock
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            Log.d(TAG, "Service WakeLock released")
+        }
+        
         renewalHandler.removeCallbacksAndMessages(null)
         notificationUpdateHandler.removeCallbacksAndMessages(null)
     }
