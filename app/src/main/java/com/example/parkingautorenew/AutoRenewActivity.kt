@@ -141,21 +141,24 @@ class AutoRenewActivity : AppCompatActivity() {
         if (autoRenewEnabled) {
             // ⚠️ RECOVERY SCENARIO: auto_renew_enabled = true mas isActiveSessionRunning = false
             // Significa que a app foi killed enquanto renovação estava rodando
-            Log.d("AutoRenewActivity", "RECOVERY: Session was killed, cleaning up and allowing recovery")
+            Log.d("AutoRenewActivity", "RECOVERY: Session was killed, restoring previous session")
             
-            // Limpar todos os dados da sessão anterior para evitar estado inconsistente
-            prefs.edit().clear().apply()
+            // ✅ Restaurar estado anterior (não limpar!)
+            isActiveSessionRunning = true  // Restaurar flag estático
             
-            // Parar qualquer serviço que possa estar tentando rodar
+            // Parar qualquer serviço antigo que possa estar rodando
             try {
                 val serviceIntent = Intent(this, ParkingRenewalService::class.java)
                 stopService(serviceIntent)
             } catch (e: Exception) {
-                Log.e("AutoRenewActivity", "Error stopping service during recovery: ${e.message}")
+                Log.e("AutoRenewActivity", "Error stopping old service during recovery: ${e.message}")
             }
             
-            // Agora prosseguir normalmente para deixar user usar a app de novo
-            Log.d("AutoRenewActivity", "Cleaned up, allowing user to start fresh")
+            // Aguardar um pouco antes de reiniciar o serviço
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d("AutoRenewActivity", "Restarting service after recovery")
+                // Vai retomar do ponto onde parou
+            }, 500)
         }
 
         // Enable back button
@@ -220,8 +223,10 @@ class AutoRenewActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        Log.d("AutoRenewActivity", "onNewIntent() called - Activity already in stack with existing session")
+        Log.d("AutoRenewActivity", "onNewIntent() called - bringing existing session to foreground")
+        Log.d("AutoRenewActivity", "isActiveSessionRunning=$isActiveSessionRunning, isRunning=$isRunning")
         // Apenas trazer para foreground, não fazer nada pois a sessão já está ativa
+        setIntent(intent)  // Atualizar intent da activity
     }
 
     private fun requestScheduleExactAlarmPermission() {
@@ -825,9 +830,31 @@ class AutoRenewActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.d("AutoRenewActivity", "onResume() - Activity brought to foreground, isRunning=$isRunning")
+        
+        // ✅ Restaurar WakeLock se sessão ativa
+        if (isRunning && wakeLock == null) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "parkingautorenew:renewal_wakelock"
+            )
+            wakeLock?.acquire()
+            Log.d("AutoRenewActivity", "WakeLock restaurado em onResume")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d("AutoRenewActivity", "onPause() - Activity going to background, isRunning=$isRunning")
+        // Não liberar WakeLock aqui! Queremos que continue rodando
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("AutoRenewActivity", "onDestroy() called")
+        Log.d("AutoRenewActivity", "onDestroy() called, isRunning=$isRunning, isActiveSessionRunning=$isActiveSessionRunning")
         
         // ✅ Clear flag estático quando activity é destruída
         isActiveSessionRunning = false

@@ -35,9 +35,11 @@ class MainActivity : AppCompatActivity() {
         val isAutoRenewEnabled = prefs.getBoolean("auto_renew_enabled", false)
         if (isAutoRenewEnabled) {
             Log.d("MainActivity", "onCreate: Session already active - redirecting to AutoRenewActivity")
+            Log.d("MainActivity", "isAutoRenewEnabled=$isAutoRenewEnabled, AutoRenewActivity.isActiveSessionRunning=${AutoRenewActivity.isActiveSessionRunning}")
             val autoRenewIntent = Intent(this, AutoRenewActivity::class.java)
-            autoRenewIntent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            autoRenewIntent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_CLEAR_TOP
             startActivity(autoRenewIntent)
+            // NÃO fazer finish() aqui - deixar MainActivity na stack como root
         }
 
         autoRenewBtn.setOnClickListener {
