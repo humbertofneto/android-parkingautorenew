@@ -1,5 +1,6 @@
 package com.example.parkingautorenew
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -42,5 +43,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         Log.d("MainActivity", "=== onCreate() COMPLETE ===")
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        Log.d("MainActivity", "onNewIntent() called - Activity already in stack")
+        
+        // Verificar se há uma sessão de auto-renew ativa
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val isAutoRenewEnabled = prefs.getBoolean("auto_renew_enabled", false)
+        
+        if (isAutoRenewEnabled) {
+            Log.d("MainActivity", "Auto-renew is active - redirecting to AutoRenewActivity")
+            // Se houver sessão ativa, voltar para AutoRenewActivity
+            val autoRenewIntent = Intent(this, AutoRenewActivity::class.java)
+            startActivity(autoRenewIntent)
+            return
+        }
+        
+        Log.d("MainActivity", "No active auto-renew - staying on MainActivity")
     }
 }
