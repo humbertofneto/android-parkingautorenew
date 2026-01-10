@@ -2,12 +2,13 @@
 
 App robusto que automatiza renovações de estacionamento com suporte a sessões persistentes e interface resiliente.
 
-**Versão:** v1.0.4 (versionCode 5)
+**Versão:** v1.0.5 (versionCode 6)
 
 ## O que está implementado
 
 ### Funcionalidades Principais
 - **Auto-Renew Session:** Interface completa com renovação automática de estacionamento
+- **Rotação de Tela Suportada:** UI mantém estado completo ao girar o dispositivo
 - **Sessão Persistente:** Mantém ativa mesmo quando app é minimizado, clicado no ícone ou notificação
 - **Service Immortal:** Serviço de background com 3 camadas de proteção:
   - `PARTIAL_WAKE_LOCK` mantém CPU ativa
@@ -85,10 +86,12 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - ✅ Minimize → Click Notification = Session intacta, countdown correto
 - ✅ Remove app from recents = Service continua rodando
 - ✅ Activity crash = Service continua, UI se recupera ao voltar
+- ✅ Rotação de tela = UI mantém estado completo, countdown preciso
 
 ### Back Button Protection
 - ✅ Durante sessão ativa: back button bloqueado silenciosamente
 - ✅ Sem sessão ativa: back button funciona normalmente
+- ✅ Sem seta de voltar na Action Bar durante sessão
 
 ### Data Persistence
 - ✅ Contadores salvos (sucesso/falha)
