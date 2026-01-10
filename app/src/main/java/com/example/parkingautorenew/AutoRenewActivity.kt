@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.BroadcastReceiver
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -919,12 +920,24 @@ class AutoRenewActivity : AppCompatActivity() {
             wakeLock?.acquire()
             Log.d("AutoRenewActivity", "WakeLock restaurado em onResume")
         }
+        
+        // ✅ IMPORTANTE: Recomeçar countdown handler se sessão ativa
+        if (isRunning) {
+            Log.d("AutoRenewActivity", "Restarting countdown handler in onResume")
+            updateCountdown()  // Isso vai começar os postDelayed novamente
+        }
     }
 
     override fun onPause() {
         super.onPause()
         Log.d("AutoRenewActivity", "onPause() - Activity going to background, isRunning=$isRunning")
-        // Não liberar WakeLock aqui! Queremos que continue rodando
+        
+        // ✅ IMPORTANTE: Pausar o countdown handler quando Activity sai
+        // Isso evita que continue rodando e causando crashes
+        countdownHandler.removeCallbacksAndMessages(null)
+        Log.d("AutoRenewActivity", "Countdown handler paused in onPause")
+        
+        // Não liberar WakeLock aqui! Queremos que Service continue rodando
     }
 
     override fun onDestroy() {
@@ -962,6 +975,193 @@ class AutoRenewActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    // ✅ Gerenciar mudanças de configuração (rotação de tela)
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Log.d("AutoRenewActivity", "onConfigurationChanged() - orientation changed to ${if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) "LANDSCAPE" else "PORTRAIT"}")
+        
+        // Reinflar o layout com nova orientação
+        setContentView(R.layout.activity_auto_renew)
+        
+        // RE-FAZER TODAS as referências às views porque o layout foi recriado
+        licensePlateInput = findViewById(R.id.licensePlateInput)
+        parkingDurationSpinner = findViewById(R.id.parkingDurationSpinner)
+        renewalFrequencySpinner = findViewById(R.id.renewalFrequencySpinner)
+        emailCheckbox = findViewById(R.id.emailCheckbox)
+        emailInput = findViewById(R.id.emailInput)
+        statusText = findViewById(R.id.statusText)
+        successCountText = findViewById(R.id.successCountText)
+        failureCountText = findViewById(R.id.failureCountText)
+        totalTimeText = findViewById(R.id.totalTimeText)
+        startButton = findViewById(R.id.startButton)
+        stopButton = findViewById(R.id.stopButton)
+        exitButton = findViewById(R.id.exitButton)
+        licensePlateLabel = findViewById(R.id.licensePlateLabel)
+        parkingDurationLabel = findViewById(R.id.parkingDurationLabel)
+        renewalFrequencyLabel = findViewById(R.id.renewalFrequencyLabel)
+        countdownText = findViewById(R.id.countdownText)
+        countersLayout = findViewById(R.id.countersLayout)
+        versionText = findViewById(R.id.versionText)
+        versionText.text = "v\${BuildConfig.VERSION_NAME}"
+        
+        // Reconfigurar WebView
+        setupAutomationWebView()
+        
+        // Reconfigurar spinners
+        setupSpinners()
+        
+        // Reconfigurar checkbox de email
+        setupEmailCheckbox()
+        
+        // Re-registrar listeners dos botões
+        setupButtonListeners()
+        
+        // Reconfigurar license plate input
+        setupLicensePlateInput()
+        
+        // Re-registrar BroadcastReceiver
+        try {
+            unregisterReceiver(renewalBroadcastReceiver)
+        } catch (e: Exception) {
+            // Ignorar se já não estava registrado
+        }
+        val filter = IntentFilter().apply {
+            addAction("RENEWAL_START")
+            addAction("RENEWAL_UPDATE")
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(renewalBroadcastReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(renewalBroadcastReceiver, filter)
+        }
+        
+        // Restaurar UI ao estado atual (de memória, não SharedPreferences)
+        restoreUIFromMemory()
+        
+        // Handler CONTINUA RODANDO (não foi recriado, apenas as views)
+        // updateCountdown() será chamado pelo onResume() logo após
+        
+        Log.d("AutoRenewActivity", "onConfigurationChanged() completed - UI restored")
+    }
+    
+    // ✅ Restaurar UI do estado em memória (não SharedPreferences)
+    private fun restoreUIFromMemory() {
+        Log.d("AutoRenewActivity", "Restoring UI from memory - isRunning=$isRunning")
+        
+        if (isRunning) {
+            // UI está rodando, restaurar visual correto
+            startButton.visibility = View.GONE
+            stopButton.visibility = View.VISIBLE
+            stopButton.isEnabled = true
+            
+            licensePlateInput.visibility = View.GONE
+            parkingDurationSpinner.visibility = View.GONE
+            renewalFrequencySpinner.visibility = View.GONE
+            emailCheckbox.visibility = View.GONE
+            emailInput.visibility = View.GONE
+            
+            licensePlateLabel.visibility = View.VISIBLE
+            parkingDurationLabel.visibility = View.VISIBLE
+            renewalFrequencyLabel.visibility = View.VISIBLE
+            
+            countersLayout.visibility = View.VISIBLE
+            statusText.visibility = View.VISIBLE
+            
+            // Restaurar valores dos contadores (do SharedPreferences)
+            val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+            val successCount = prefs.getInt("success_count", 0)
+            val failureCount = prefs.getInt("failure_count", 0)
+            successCountText.text = successCount.toString()
+            failureCountText.text = failureCount.toString()
+            
+            // Restaurar labels com valores configurados
+            val plate = prefs.getString("license_plate", "")
+            val duration = prefs.getString("parking_duration", "")
+            val frequency = prefs.getString("renewal_frequency", "")
+            
+            if (!plate.isNullOrEmpty()) {
+                licensePlateLabel.text = "Placa do Veículo: $plate"
+            }
+            if (!duration.isNullOrEmpty()) {
+                parkingDurationLabel.text = "Tempo de Estacionamento: $duration"
+            }
+            if (!frequency.isNullOrEmpty()) {
+                renewalFrequencyLabel.text = "Renovar a Cada: $frequency"
+            }
+            
+            // Restaurar countdown se houver
+            if (nextRenewalTimeMillis > 0) {
+                countdownText.visibility = View.VISIBLE
+            }
+            
+            Log.d("AutoRenewActivity", "UI restored to running state - successCount=$successCount, failureCount=$failureCount")
+        } else {
+            // UI está parada, mostrar estado inicial
+            startButton.visibility = View.VISIBLE
+            stopButton.visibility = View.GONE
+            
+            licensePlateInput.visibility = View.VISIBLE
+            parkingDurationSpinner.visibility = View.VISIBLE
+            renewalFrequencySpinner.visibility = View.VISIBLE
+            emailCheckbox.visibility = View.VISIBLE
+            
+            licensePlateLabel.visibility = View.VISIBLE
+            licensePlateLabel.text = "Placa do Veículo"
+            parkingDurationLabel.visibility = View.VISIBLE
+            parkingDurationLabel.text = "Tempo de Estacionamento"
+            renewalFrequencyLabel.visibility = View.VISIBLE
+            renewalFrequencyLabel.text = "Renovar a Cada"
+            
+            countersLayout.visibility = View.GONE
+            countdownText.visibility = View.GONE
+            statusText.visibility = View.VISIBLE
+            
+            Log.d("AutoRenewActivity", "UI restored to stopped state")
+        }
+    }
+    
+    // ✅ Salvar estado para casos extremos (app killed durante rotação)
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        Log.d("AutoRenewActivity", "onSaveInstanceState() - saving critical state")
+        
+        outState.putBoolean("isRunning", isRunning)
+        outState.putBoolean("isActiveSessionRunning", isActiveSessionRunning)
+        outState.putLong("nextRenewalTimeMillis", nextRenewalTimeMillis)
+        
+        // Salvar contadores
+        val successCount = successCountText.text.toString().toIntOrNull() ?: 0
+        val failureCount = failureCountText.text.toString().toIntOrNull() ?: 0
+        outState.putInt("success_count", successCount)
+        outState.putInt("failure_count", failureCount)
+        
+        Log.d("AutoRenewActivity", "State saved: isRunning=$isRunning, nextRenewal=$nextRenewalTimeMillis")
+    }
+    
+    // ✅ Restaurar estado em casos extremos
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        Log.d("AutoRenewActivity", "onRestoreInstanceState() - restoring from Bundle")
+        
+        val wasRunning = savedInstanceState.getBoolean("isRunning", false)
+        isActiveSessionRunning = savedInstanceState.getBoolean("isActiveSessionRunning", false)
+        nextRenewalTimeMillis = savedInstanceState.getLong("nextRenewalTimeMillis", 0)
+        
+        if (wasRunning) {
+            isRunning = true
+            
+            // Restaurar contadores
+            val successCount = savedInstanceState.getInt("success_count", 0)
+            val failureCount = savedInstanceState.getInt("failure_count", 0)
+            successCountText.text = successCount.toString()
+            failureCountText.text = failureCount.toString()
+            
+            Log.d("AutoRenewActivity", "State restored: isRunning=$isRunning, nextRenewal=$nextRenewalTimeMillis")
+            
+            // UI será restaurada pelo restoreUIFromMemory() já chamado
+        }
     }
 
     inner class AutomationBridge {

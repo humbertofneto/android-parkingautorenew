@@ -31,6 +31,7 @@
             android:name=".AutoRenewActivity"
             android:exported="false"
             android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|layoutDirection"
             android:label="Auto Renew Parking" />
 
         <activity
