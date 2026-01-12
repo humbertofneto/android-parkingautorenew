@@ -292,11 +292,26 @@ class ParkingRenewalService : Service() {
         // Armazenar tempo da próxima renovação
         nextRenewalTimeMillis = System.currentTimeMillis() + delayMillis
         
-        // Usar AlarmManager para garantir execução mesmo em background
+        // ✅ CANCELAR alarmes antigos ANTES de agendar novo (evita duplicação)
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, ParkingRenewalService::class.java).apply {
             action = "EXECUTE_RENEWAL"
         }
+        
+        // Cancelar alarme existente se houver
+        val oldPendingIntent = PendingIntent.getService(
+            this,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (oldPendingIntent != null) {
+            alarmManager.cancel(oldPendingIntent)
+            oldPendingIntent.cancel()
+            Log.d(TAG, "Canceled previous alarm before scheduling new one")
+        }
+        
+        // Criar novo PendingIntent
         val pendingIntent = PendingIntent.getService(
             this,
             ALARM_REQUEST_CODE,
@@ -338,15 +353,7 @@ class ParkingRenewalService : Service() {
             }
         }
         
-        // Também usar Handler como backup (pode não funcionar em background profundo)
-        renewalHandler.postDelayed({
-            if (isRunning) {
-                Log.d(TAG, "Handler backup fired - executing renewal")
-                executeRenewal()
-            }
-        }, delayMillis)
-        
-        Log.d(TAG, "Next renewal scheduled in ${delayMillis / 1000 / 60} minutes using AlarmManager + Handler")
+        Log.d(TAG, "Next renewal scheduled in ${delayMillis / 1000 / 60} minutes using AlarmManager")
     }
     
     private fun stopAutoRenew() {
@@ -363,7 +370,7 @@ class ParkingRenewalService : Service() {
         }
         val pendingIntent = PendingIntent.getService(
             this,
-            0,
+            ALARM_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
