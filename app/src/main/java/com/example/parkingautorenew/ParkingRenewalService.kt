@@ -235,6 +235,9 @@ class ParkingRenewalService : Service() {
                 }
                 sendBroadcast(intent)
                 Log.d(TAG, "Broadcast sent: RENEWAL_UPDATE with status=success")
+                
+                // ✅ Agendar próxima renovação SOMENTE após sucesso
+                scheduleNextRenewal()
             },
             onError = { error ->
                 Log.e(TAG, "========== Service: Renewal ERROR ==========")
@@ -269,9 +272,6 @@ class ParkingRenewalService : Service() {
         Log.d(TAG, "Starting automation with plate=$plate, duration=$duration, sendEmail=$sendEmail")
         automationManager?.start(plate, duration, sendEmail, email)
         Log.d(TAG, "automationManager.start() called")
-        
-        // Agendar próxima renovação após esta
-        scheduleNextRenewal()
     }
     
     private fun scheduleNextRenewal() {
