@@ -44,14 +44,19 @@ class ParkingRenewalService : Service() {
         super.onCreate()
         Log.d(TAG, "Service onCreate()")
         
-        // ✅ Adquirir WakeLock para garantir que Service nunca durma
+        // ✅ FIX #8: Adquirir WakeLock com TIMEOUT para prevenir battery drain
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
             "parkingautorenew:service_wakelock"
         )
-        wakeLock?.acquire()
-        Log.d(TAG, "Service WakeLock acquired - Service will NEVER sleep!")
+        try {
+            // Timeout de 24 horas - Service renova antes disso
+            wakeLock?.acquire(24 * 60 * 60 * 1000L)
+            Log.d(TAG, "Service WakeLock acquired with 24h timeout")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error acquiring WakeLock: ${e.message}")
+        }
         
         createNotificationChannel()
         // NÃO criar WebView aqui - criar novo para cada renovação

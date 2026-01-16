@@ -503,15 +503,21 @@ class AutoRenewActivity : AppCompatActivity() {
         // ✅ Manter tela ligada enquanto sessão está ativa
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
-        // ✅ Adquirir WakeLock para manter CPU ligada (fallback em case de sleep)
+        // ✅ FIX #8 #13: Adquirir WakeLock com TIMEOUT e try/finally
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (wakeLock == null) {
             wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "parkingautorenew:renewal_wakelock"
             )
-            wakeLock?.acquire()
-            Log.d("AutoRenewActivity", "WakeLock adquirido")
+        }
+        
+        try {
+            // Timeout de 3 horas - renova automaticamente a cada renovação
+            wakeLock?.acquire(3 * 60 * 60 * 1000L)
+            Log.d("AutoRenewActivity", "WakeLock adquirido com timeout de 3h")
+        } catch (e: Exception) {
+            Log.e("AutoRenewActivity", "Erro ao adquirir WakeLock: ${e.message}")
         }
         
         isRunning = true
@@ -906,24 +912,32 @@ class AutoRenewActivity : AppCompatActivity() {
     
     private fun incrementSuccessCount() {
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-        val currentCount = prefs.getInt("success_count", 0)
-        val newCount = currentCount + 1
         
-        prefs.edit().putInt("success_count", newCount).apply()
-        successCountText.text = newCount.toString()
-        
-        Log.d("AutoRenewActivity", "Success count incremented to $newCount")
+        // ✅ FIX #12: Usar commit() síncrono para evitar race condition
+        synchronized(prefs) {
+            val currentCount = prefs.getInt("success_count", 0)
+            val newCount = currentCount + 1
+            
+            prefs.edit().putInt("success_count", newCount).commit()
+            successCountText.text = newCount.toString()
+            
+            Log.d("AutoRenewActivity", "Success count incremented to $newCount (synchronized)")
+        }
     }
     
     private fun incrementFailureCount() {
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-        val currentCount = prefs.getInt("failure_count", 0)
-        val newCount = currentCount + 1
         
-        prefs.edit().putInt("failure_count", newCount).apply()
-        failureCountText.text = newCount.toString()
-        
-        Log.d("AutoRenewActivity", "Failure count incremented to $newCount")
+        // ✅ FIX #12: Usar commit() síncrono para evitar race condition
+        synchronized(prefs) {
+            val currentCount = prefs.getInt("failure_count", 0)
+            val newCount = currentCount + 1
+            
+            prefs.edit().putInt("failure_count", newCount).commit()
+            failureCountText.text = newCount.toString()
+            
+            Log.d("AutoRenewActivity", "Failure count incremented to $newCount (synchronized)")
+        }
     }
 
     private fun createNotificationChannel() {
@@ -948,15 +962,19 @@ class AutoRenewActivity : AppCompatActivity() {
         super.onResume()
         Log.d("AutoRenewActivity", "onResume() - Activity brought to foreground, isRunning=$isRunning")
         
-        // ✅ Restaurar WakeLock se sessão ativa
+        // ✅ FIX #8: Restaurar WakeLock com timeout se sessão ativa
         if (isRunning && wakeLock == null) {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             wakeLock = powerManager.newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "parkingautorenew:renewal_wakelock"
             )
-            wakeLock?.acquire()
-            Log.d("AutoRenewActivity", "WakeLock restaurado em onResume")
+            try {
+                wakeLock?.acquire(3 * 60 * 60 * 1000L)
+                Log.d("AutoRenewActivity", "WakeLock restaurado em onResume com timeout")
+            } catch (e: Exception) {
+                Log.e("AutoRenewActivity", "Erro ao adquirir WakeLock: ${e.message}")
+            }
         }
         
         // ✅ IMPORTANTE: Recomeçar countdown handler se sessão ativa
@@ -1003,12 +1021,16 @@ class AutoRenewActivity : AppCompatActivity() {
         // Remover todos os callbacks pendentes
         countdownHandler.removeCallbacksAndMessages(null)
         
-        // Desregistrar BroadcastReceiver para evitar broadcasts fantasmas
-        try {
-            unregisterReceiver(renewalBroadcastReceiver)
-            Log.d("AutoRenewActivity", "BroadcastReceiver unregistered successfully")
-        } catch (e: Exception) {
-            Log.e("AutoRenewActivity", "Error unregistering receiver: ${e.message}")
+        // ✅ FIX #9: Só desregistrar receiver se sessão NÃO está rodando
+        if (!isRunning) {
+            try {
+                unregisterReceiver(renewalBroadcastReceiver)
+                Log.d("AutoRenewActivity", "BroadcastReceiver unregistered (session stopped)")
+            } catch (e: Exception) {
+                Log.e("AutoRenewActivity", "Error unregistering receiver: ${e.message}")
+            }
+        } else {
+            Log.d("AutoRenewActivity", "Preserving BroadcastReceiver (session still running)")
         }
         
         // Limpar AutomationManager completamente

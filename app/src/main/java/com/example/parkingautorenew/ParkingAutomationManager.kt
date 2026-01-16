@@ -27,10 +27,11 @@ class ParkingAutomationManager(
     private var plateNumber = ""
     private var sendEmail = false
     private var userEmail = ""
-    private var isExecuting = false
-    private var successCalled = false  // Flag para evitar múltiplas chamadas
+    @Volatile private var isExecuting = false
+    @Volatile private var successCalled = false  // ✅ FIX #10: Thread-safe flag
     private val mainHandler = Handler(Looper.getMainLooper())
     private var timeoutRunnable: Runnable? = null
+    private val pendingCallbacks = mutableListOf<Runnable>()  // ✅ FIX #11: Rastrear callbacks
 
     fun start(plate: String, duration: String, shouldSendEmail: Boolean = false, email: String = "") {
         if (isExecuting) {
@@ -768,6 +769,14 @@ class ParkingAutomationManager(
         Log.d(TAG, "Stopping automation")
         isExecuting = false
         cancelTimeoutHandler()
+        
+        // ✅ FIX #11: Limpar TODOS os callbacks pendentes
+        synchronized(pendingCallbacks) {
+            pendingCallbacks.forEach { mainHandler.removeCallbacks(it) }
+            pendingCallbacks.clear()
+            Log.d(TAG, "Cleared all pending Handler callbacks")
+        }
+        
         webView.stopLoading()
         webView.loadUrl("about:blank")
     }
