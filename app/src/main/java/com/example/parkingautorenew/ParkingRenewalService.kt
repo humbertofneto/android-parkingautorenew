@@ -64,7 +64,7 @@ class ParkingRenewalService : Service() {
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Service onStartCommand()")
+        Log.d(TAG, "Service onStartCommand() - action: ${intent?.action}")
         
         val action = intent?.action
         
@@ -77,6 +77,19 @@ class ParkingRenewalService : Service() {
             }
             "EXECUTE_RENEWAL" -> {
                 executeRenewal()
+            }
+            null -> {
+                // ✅ FIX #30: Service foi recriado após ser killed (no action = redelivered intent)
+                // Verificar se deve restaurar sessão ativa
+                val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+                val autoRenewEnabled = prefs.getBoolean("auto_renew_enabled", false)
+                
+                if (autoRenewEnabled) {
+                    Log.d(TAG, "Service recreated after kill, restoring active session")
+                    startAutoRenew()
+                } else {
+                    Log.d(TAG, "Service recreated but no active session found")
+                }
             }
         }
         
@@ -153,24 +166,25 @@ class ParkingRenewalService : Service() {
             Log.w(TAG, "Error destroying previous WebView: ${e.message}")
         }
         
-        webView = WebView(applicationContext)
-        
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            cacheMode = WebSettings.LOAD_DEFAULT
-        }
-        
-        Log.d(TAG, "New WebView created for renewal")
-    }
-    
-    private fun startAutoRenew() {
-        if (isRunning) {
-            Log.w(TAG, "Auto-renew already running")
+        webView = WebView(applicationContext), re-scheduling alarms as safety measure")
+            // ✅ FIX #30: Mesmo se já running, reagendar alarmes (podem ter sido perdidos)
+            scheduleNextRenewal()
             return
         }
         
         isRunning = true
+        shouldUpdateNotification = true  // ✅ FIX #18: Ativar updates
+        
+        // Criar notificação de foreground
+        val notification = createNotification("Auto-Renew ativo", "Inicializando...")
+        startForeground(NOTIFICATION_ID, notification)
+        
+        Log.d(TAG, "Auto-renew started in foreground")
+        
+        // Iniciar atualização periódica da notificação
+        startNotificationUpdates()
+        
+        // ✅ FIX #30: Sempre agendar alarmes ao iniciar (garante restauração após kill
         shouldUpdateNotification = true  // ✅ FIX #18: Ativar updates
         
         // Criar notificação de foreground
