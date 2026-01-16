@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.parkingautorenew"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "1.0.8"
+        versionCode = 9
+        versionName = "1.0.9"
     }
 
     buildFeatures {
