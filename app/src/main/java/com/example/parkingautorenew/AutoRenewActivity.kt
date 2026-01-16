@@ -1178,7 +1178,24 @@ class AutoRenewActivity : AppCompatActivity() {
                 countdownText.visibility = View.VISIBLE
             }
             
-            Log.d("AutoRenewActivity", "UI restored to running state - successCount=$successCount, failureCount=$failureCount")
+            // ✅ Restaurar informações de confirmação se houver
+            lastConfirmationDetails?.let { details ->
+                val lastStartTime = details.startTime
+                val lastExpiryTime = details.expiryTime
+                val lastPlate = details.plate
+                val lastLocation = details.location
+                val lastConfirmation = details.confirmationNumber
+                
+                statusText.text = """Status: ✅ Auto-Renew ativo
+                    |Última renovação: agora mesmo
+                    |
+                    |═══ ÚLTIMA CONFIRMAÇÃO ═══
+                    |Start: $lastStartTime
+                    |Expiry: $lastExpiryTime
+                    |Placa: $lastPlate
+                    |Local: $lastLocation
+                    |Confirmação #: $lastConfirmation""".trimMargin()
+            }
         } else {
             // UI está parada, mostrar estado inicial
             startButton.visibility = View.VISIBLE
