@@ -576,18 +576,24 @@ class ParkingAutomationManager(
                 Log.d(TAG, "Confirmation #: ${confirmationDetails.confirmationNumber}")
                 Log.d(TAG, "=====================================")
                 
-                // Verificar se deve enviar email
-                if (sendEmail && userEmail.isNotEmpty()) {
-                    Log.d(TAG, "Sending email to: $userEmail")
-                    sendEmailAndClickDone(userEmail, confirmationDetails)
-                } else {
-                    Log.d(TAG, "Skipping email, clicking DONE directly")
-                    clickDone(confirmationDetails)
+                // ✅ FIX #25: Garantir que processamento acontece na main thread
+                Handler(Looper.getMainLooper()).post {
+                    // Verificar se deve enviar email
+                    if (sendEmail && userEmail.isNotEmpty()) {
+                        Log.d(TAG, "Sending email to: $userEmail")
+                        sendEmailAndClickDone(userEmail, confirmationDetails)
+                    } else {
+                        Log.d(TAG, "Skipping email, clicking DONE directly")
+                        clickDone(confirmationDetails)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error parsing confirmation data: ${e.message}")
                 e.printStackTrace()
-                onError("Error extracting confirmation data: ${e.message}")
+                // ✅ FIX #25: Garantir que callback de erro também executa na main thread
+                Handler(Looper.getMainLooper()).post {
+                    onError("Error extracting confirmation data: ${e.message}")
+                }
             }
         }
     }
@@ -722,25 +728,28 @@ class ParkingAutomationManager(
     private fun completeAutomation(confirmationDetails: ConfirmationDetails) {
         Log.d(TAG, "=== Automation completed successfully ===")
         
-        // Evitar múltiplas chamadas de onSuccess
-        if (!successCalled) {
-            successCalled = true
-            isExecuting = false
-            
-            // Cancelar timeout de segurança
-            cancelTimeoutHandler()
-            
-            // PARAR WebView imediatamente
-            Log.d(TAG, "Stopping WebView to prevent continuous reloading")
-            Handler(Looper.getMainLooper()).post {
-                webView.stopLoading()
-                webView.loadUrl("about:blank")
+        // ✅ FIX #25: Sincronizar acesso a successCalled para prevenir race condition
+        synchronized(this) {
+            // Evitar múltiplas chamadas de onSuccess
+            if (!successCalled) {
+                successCalled = true
+                isExecuting = false
                 
-                // Chamar callback de sucesso
-                onSuccess(confirmationDetails)
+                // Cancelar timeout de segurança
+                cancelTimeoutHandler()
+                
+                // PARAR WebView imediatamente
+                Log.d(TAG, "Stopping WebView to prevent continuous reloading")
+                Handler(Looper.getMainLooper()).post {
+                    webView.stopLoading()
+                    webView.loadUrl("about:blank")
+                    
+                    // Chamar callback de sucesso
+                    onSuccess(confirmationDetails)
+                }
+            } else {
+                Log.w(TAG, "onSuccess already called, ignoring duplicate")
             }
-        } else {
-            Log.w(TAG, "onSuccess already called, ignoring duplicate")
         }
     }
     

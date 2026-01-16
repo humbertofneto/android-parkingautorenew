@@ -1055,10 +1055,19 @@ class AutoRenewActivity : AppCompatActivity() {
         super.onConfigurationChanged(newConfig)
         Log.d("AutoRenewActivity", "onConfigurationChanged() - orientation changed to ${if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) "LANDSCAPE" else "PORTRAIT"}")
         
+        // ✅ FIX #24: Salvar WebView ANTES de setContentView para prevenir memory leak
+        val preservedWebView = if (automationManager != null && isRunning) {
+            // Remover WebView do layout antigo
+            (automationWebView.parent as? android.view.ViewGroup)?.removeView(automationWebView)
+            automationWebView
+        } else {
+            null
+        }
+        
         // Reinflar o layout com nova orientação
         setContentView(R.layout.activity_auto_renew)
         
-        // RE-FAZER TODAS as referências às views porque o layout foi recriado
+        // ✅ FIX #23: RE-FAZER TODAS as referências às views ANTES de usar qualquer uma delas
         licensePlateInput = findViewById(R.id.licensePlateInput)
         parkingDurationSpinner = findViewById(R.id.parkingDurationSpinner)
         renewalFrequencySpinner = findViewById(R.id.renewalFrequencySpinner)
@@ -1077,14 +1086,17 @@ class AutoRenewActivity : AppCompatActivity() {
         countdownText = findViewById(R.id.countdownText)
         countersLayout = findViewById(R.id.countersLayout)
         versionText = findViewById(R.id.versionText)
-        versionText.text = "v\${BuildConfig.VERSION_NAME}"
+        versionText.text = "v${BuildConfig.VERSION_NAME}"
         
-        // ✅ FIX #7: Não recriar WebView se renovação em andamento
-        if (automationManager == null || !isRunning) {
+        // ✅ FIX #24: Re-adicionar WebView preservado ao novo layout ou criar novo
+        if (preservedWebView != null) {
+            val webViewContainer = findViewById<android.view.ViewGroup>(R.id.webViewContainer)
+            webViewContainer.addView(preservedWebView)
+            automationWebView = preservedWebView
+            Log.d("AutoRenewActivity", "WebView preserved and re-attached to new layout")
+        } else {
             setupAutomationWebView()
             Log.d("AutoRenewActivity", "WebView recreated (no active renewal)")
-        } else {
-            Log.d("AutoRenewActivity", "Preserving WebView (renewal in progress)")
         }
         
         // Reconfigurar spinners
