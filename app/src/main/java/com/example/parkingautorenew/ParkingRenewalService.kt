@@ -152,7 +152,6 @@ class ParkingRenewalService : Service() {
     }
     
     private fun setupWebView() {
-    private fun setupWebView() {
         // ✅ FIX #5: Destruir WebView antigo antes de criar novo (prevenir memory leak)
         try {
             if (::webView.isInitialized) {
