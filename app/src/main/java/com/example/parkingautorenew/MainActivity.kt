@@ -75,6 +75,22 @@ class MainActivity : AppCompatActivity() {
         Log.d("MainActivity", "=== onCreate() COMPLETE ===")
     }
 
+    override fun onResume() {
+        super.onResume()
+        Log.d("MainActivity", "onResume() called")
+        
+        // ✅ Verificar SEMPRE que MainActivity volta ao foreground
+        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+        val isAutoRenewEnabled = prefs.getBoolean("auto_renew_enabled", false)
+        
+        if (isAutoRenewEnabled) {
+            Log.d("MainActivity", "onResume: Session active - redirecting to AutoRenewActivity")
+            val autoRenewIntent = Intent(this, AutoRenewActivity::class.java)
+            autoRenewIntent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+            startActivity(autoRenewIntent)
+        }
+    }
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         Log.d("MainActivity", "onNewIntent() called - Activity already in stack")
