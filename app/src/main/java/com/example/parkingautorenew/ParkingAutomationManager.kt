@@ -113,6 +113,25 @@ class ParkingAutomationManager(
                 isExecuting = false
                 onError("Error loading page: ${error?.description}")
             }
+            
+            // ✅ FIX #27: Tratar crash do WebView renderer process
+            override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    val didCrash = detail?.didCrash() ?: false
+                    Log.e(TAG, "WebView renderer process gone. Crashed: $didCrash")
+                } else {
+                    Log.e(TAG, "WebView renderer process gone")
+                }
+                
+                isExecuting = false
+                
+                // Garantir que callback executa na main thread
+                Handler(Looper.getMainLooper()).post {
+                    onError("WebView crashed, please try again")
+                }
+                
+                return true  // Handled
+            }
         }
     }
 

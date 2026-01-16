@@ -71,6 +71,7 @@ class AutoRenewActivity : AppCompatActivity() {
     private var nextRenewalTimeMillis: Long = 0
     private var lastConfirmationDetails: ConfirmationDetails? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var isReceiverRegistered = false  // ✅ FIX #29: Track receiver registration state
     
     // BroadcastReceiver para receber notificações do Service
     private val renewalBroadcastReceiver = object : BroadcastReceiver() {
@@ -211,6 +212,7 @@ class AutoRenewActivity : AppCompatActivity() {
         } else {
             registerReceiver(renewalBroadcastReceiver, filter)
         }
+        isReceiverRegistered = true  // ✅ FIX #29: Mark as registered
         
         Log.d("AutoRenewActivity", "BroadcastReceiver registered")
 
@@ -918,6 +920,43 @@ class AutoRenewActivity : AppCompatActivity() {
         Log.d("AutoRenewActivity", "Counters loaded - Success: $successCount, Failure: $failureCount")
     }
     
+    private fun updateCountdown() {
+        // ✅ FIX #28: Verificar se Activity ainda está viva antes de acessar views
+        if (isDestroyed || isFinishing) {
+            Log.d("AutoRenewActivity", "Activity destroyed/finishing, stopping countdown")
+            return
+        }
+        
+        val remaining = nextRenewalTimeMillis - System.currentTimeMillis()
+        
+        if (remaining > 0 && isRunning) {
+            val minutes = (remaining / 1000 / 60).toInt()
+            val seconds = ((remaining / 1000) % 60).toInt()
+            
+            // ✅ FIX #28: Double-check antes de atualizar UI
+            if (!isDestroyed && !isFinishing) {
+                try {
+                    countdownText.text = "Next renewal in: ${minutes}m ${seconds}s"
+                } catch (e: Exception) {
+                    Log.e("AutoRenewActivity", "Error updating countdown: ${e.message}")
+                    return
+                }
+            }
+            
+            // Schedule next update
+            countdownHandler.postDelayed({ updateCountdown() }, 1000)
+        } else if (remaining <= 0 && isRunning) {
+            // ✅ FIX #28: Guard também aqui
+            if (!isDestroyed && !isFinishing) {
+                try {
+                    countdownText.text = "Renewal in progress..."
+                } catch (e: Exception) {
+                    Log.e("AutoRenewActivity", "Error updating countdown: ${e.message}")
+                }
+            }
+        }
+    }
+    
     private fun incrementSuccessCount() {
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
         
@@ -1029,16 +1068,17 @@ class AutoRenewActivity : AppCompatActivity() {
         // Remover todos os callbacks pendentes
         countdownHandler.removeCallbacksAndMessages(null)
         
-        // ✅ FIX #9: Só desregistrar receiver se sessão NÃO está rodando
-        if (!isRunning) {
+        // ✅ FIX #9 & #29: Só desregistrar receiver se sessão NÃO está rodando E estava registrado
+        if (!isRunning && isReceiverRegistered) {
             try {
                 unregisterReceiver(renewalBroadcastReceiver)
+                isReceiverRegistered = false
                 Log.d("AutoRenewActivity", "BroadcastReceiver unregistered (session stopped)")
             } catch (e: Exception) {
                 Log.e("AutoRenewActivity", "Error unregistering receiver: ${e.message}")
             }
         } else {
-            Log.d("AutoRenewActivity", "Preserving BroadcastReceiver (session still running)")
+            Log.d("AutoRenewActivity", "Preserving BroadcastReceiver (session still running or not registered)")
         }
         
         // Limpar AutomationManager completamente
@@ -1111,15 +1151,15 @@ class AutoRenewActivity : AppCompatActivity() {
         // Reconfigurar license plate input
         setupLicensePlateInput()
         
-        // ✅ FIX #4: Re-registrar BroadcastReceiver com melhor gestão
-        // Garantir que não está registrado antes de registrar novamente
-        var wasRegistered = false
-        try {
-            unregisterReceiver(renewalBroadcastReceiver)
-            wasRegistered = true
-            Log.d("AutoRenewActivity", "BroadcastReceiver unregistered in onConfigurationChanged")
-        } catch (e: IllegalArgumentException) {
-            Log.d("AutoRenewActivity", "BroadcastReceiver was not registered")
+        // ✅ FIX #4 & #29: Re-registrar BroadcastReceiver com melhor gestão usando flag
+        if (isReceiverRegistered) {
+            try {
+                unregisterReceiver(renewalBroadcastReceiver)
+                isReceiverRegistered = false
+                Log.d("AutoRenewActivity", "BroadcastReceiver unregistered in onConfigurationChanged")
+            } catch (e: IllegalArgumentException) {
+                Log.d("AutoRenewActivity", "BroadcastReceiver was already unregistered")
+            }
         }
         
         val filter = IntentFilter().apply {
@@ -1131,6 +1171,7 @@ class AutoRenewActivity : AppCompatActivity() {
         } else {
             registerReceiver(renewalBroadcastReceiver, filter)
         }
+        isReceiverRegistered = true
         Log.d("AutoRenewActivity", "BroadcastReceiver re-registered in onConfigurationChanged")
         
         // Restaurar UI ao estado atual (de memória, não SharedPreferences)
