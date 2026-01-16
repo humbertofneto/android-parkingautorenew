@@ -728,51 +728,6 @@ class AutoRenewActivity : AppCompatActivity() {
         updateCountdown()
     }
     
-    private fun updateCountdown() {
-        if (!isRunning) return
-        
-        val now = System.currentTimeMillis()
-        val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-        val lastRenewalTime = prefs.getLong("last_renewal_time", 0)
-        
-        // Calcular tempo decorrido desde a última renovação
-        val elapsedMillis = if (lastRenewalTime > 0) now - lastRenewalTime else 0L
-        val elapsedMinutes = (elapsedMillis / 1000 / 60).toInt()
-        val elapsedSeconds = ((elapsedMillis / 1000) % 60).toInt()
-        
-        val elapsedText = when {
-            elapsedMinutes > 0 -> "há ${elapsedMinutes}min ${elapsedSeconds}s"
-            else -> "há ${elapsedSeconds}s"
-        }
-        
-        val remainingMillis = nextRenewalTimeMillis - now
-        
-        if (remainingMillis > 0) {
-            val minutes = (remainingMillis / 1000 / 60).toInt()
-            val seconds = ((remainingMillis / 1000) % 60).toInt()
-            
-            // Atualizar status text (sem countdown)
-            lastConfirmationDetails?.let { details ->
-                statusText.text = """Status: Auto-Renew ativo
-                    |Última renovação: $elapsedText
-                    |
-                    |═══ CONFIRMAÇÃO ═══
-                    |Start: ${details.startTime}
-                    |Expiry: ${details.expiryTime}
-                    |Placa: ${details.plate}
-                    |Local: ${details.location}
-                    |Confirmação #: ${details.confirmationNumber}""".trimMargin()
-            }
-            
-            // Update countdown separately
-            countdownText.visibility = View.VISIBLE
-            countdownText.text = "⏱ Next renewal in: ${minutes} min ${seconds} sec"
-            
-            // Agendar próxima atualização em 1 segundo
-            countdownHandler.postDelayed({ updateCountdown() }, 1000)
-        }
-    }
-    
     private fun stopAutoRenew() {
         Log.d("AutoRenewActivity", "Stopping auto-renew")
         
