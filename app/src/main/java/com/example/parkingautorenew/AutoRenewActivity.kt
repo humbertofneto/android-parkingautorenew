@@ -559,25 +559,28 @@ class AutoRenewActivity : AppCompatActivity() {
         val sendEmail = emailCheckbox.isChecked
         val email = if (sendEmail) emailInput.text.toString().trim() else ""
         
-        // Zerar contadores nas preferências para nova reserva
+        // ✅ FIX #22: Consolidar TODAS as operações em UMA chamada edit() para performance e consistência
+        val currentTime = System.currentTimeMillis()
         prefs.edit().apply {
+            // Zerar contadores para nova reserva
             putInt("success_count", 0)
             putInt("failure_count", 0)
+            
+            // Configurações de email
             putBoolean("send_email", sendEmail)
             putString("user_email", email)
-            apply()
-        }
-        
-        // Salvar timestamp da primeira renovação se não existir
-        if (!prefs.contains("first_renewal_time")) {
-            prefs.edit().putLong("first_renewal_time", System.currentTimeMillis()).apply()
-        }
-        
-        prefs.edit().apply {
+            
+            // Timestamp da primeira renovação (só seta se não existir)
+            if (!prefs.contains("first_renewal_time")) {
+                putLong("first_renewal_time", currentTime)
+            }
+            
+            // Configurações principais
             putString("license_plate", plate)
             putString("parking_duration", duration)
             putString("renewal_frequency", frequency)
             putBoolean("auto_renew_enabled", true)
+            
             apply()
         }
 
