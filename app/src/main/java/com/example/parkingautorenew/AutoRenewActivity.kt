@@ -482,19 +482,36 @@ class AutoRenewActivity : AppCompatActivity() {
             builder.setTitle("Exit Application")
             builder.setMessage("This will stop all renewals and clear all data. Are you sure?")
             builder.setPositiveButton("Yes, Exit") { _, _ ->
-                // Parar serviço se estiver rodando
-                if (isRunning) {
-                    val serviceIntent = Intent(this, ParkingRenewalService::class.java)
-                    serviceIntent.action = "STOP_AUTO_RENEW"
-                    startService(serviceIntent)
+                Log.d("AutoRenewActivity", "User confirmed EXIT - Force stopping application")
+                
+                // 1. Limpar flag estático
+                isActiveSessionRunning = false
+                
+                // 2. Parar serviço COMPLETAMENTE
+                val serviceIntent = Intent(this, ParkingRenewalService::class.java)
+                serviceIntent.action = "STOP_AUTO_RENEW"
+                startService(serviceIntent)
+                
+                // 3. Zerar todos os dados e contadores
+                val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+                prefs.edit().clear().commit() // commit() síncrono
+                
+                // 4. Remover todos os callbacks pendentes
+                countdownHandler.removeCallbacksAndMessages(null)
+                
+                // 5. Liberar WakeLock se estiver ativo
+                if (wakeLock?.isHeld == true) {
+                    wakeLock?.release()
                 }
                 
-                // Zerar todos os dados e contadores
-                val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-                prefs.edit().clear().apply()
-                
-                // Fechar aplicação completamente
+                // 6. Fechar TODAS as Activities
                 finishAffinity()
+                
+                // 7. Matar processo completamente (Force Stop)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                    System.exit(0)
+                }, 300)
             }
             builder.setNegativeButton("Cancel", null)
             builder.show()
