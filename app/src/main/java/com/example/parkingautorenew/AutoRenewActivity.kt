@@ -140,16 +140,24 @@ class AutoRenewActivity : AppCompatActivity() {
         val autoRenewEnabled = prefs.getBoolean("auto_renew_enabled", false)
         
         if (autoRenewEnabled) {
-            // ⚠️ RECOVERY SCENARIO: auto_renew_enabled = true mas isActiveSessionRunning = false
-            // Significa que a Activity foi killed mas SERVICE continua rodando
-            Log.d("AutoRenewActivity", "RECOVERY: Activity was killed, restoring session from SharedPreferences")
+            // ✅ FIX #2: RECOVERY SCENARIO - validar que Service está realmente rodando
+            Log.d("AutoRenewActivity", "RECOVERY: Activity was killed, checking if Service is running...")
             
-            // ✅ Restaurar flag estático
-            isActiveSessionRunning = true
-            isRunning = true  // Marcar como rodando
+            // Verificar se Service está realmente rodando
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val isServiceRunning = activityManager.getRunningServices(Integer.MAX_VALUE)
+                .any { it.service.className == ParkingRenewalService::class.java.name }
             
-            // NÃO parar o service - ele continua rodando!
-            Log.d("AutoRenewActivity", "Service should still be running, will reconnect to it")
+            if (isServiceRunning) {
+                // ✅ Service está rodando, fazer recovery
+                isActiveSessionRunning = true
+                isRunning = true
+                Log.d("AutoRenewActivity", "Service confirmed running, restoring session")
+            } else {
+                // ⚠️ Service NÃO está rodando, limpar prefs
+                Log.w("AutoRenewActivity", "Service NOT running, clearing stale preferences")
+                prefs.edit().putBoolean("auto_renew_enabled", false).apply()
+            }
         }
 
         licensePlateInput = findViewById(R.id.licensePlateInput)
@@ -265,13 +273,11 @@ class AutoRenewActivity : AppCompatActivity() {
             statusText.text = "Status: ⏳ Sessão Restaurada\n\nAguardando primeira renovação..."
         }
         
-        // ✅ Restaurar countdown se houver próxima renovação agendada
-        // IMPORTANTE: Restaurar o tempo EXATO salvo, NÃO recalcular!
+        // ✅ FIX #3: Restaurar countdown e iniciar loop contínuo
         if (nextRenewalTime > 0) {
             nextRenewalTimeMillis = nextRenewalTime
             countdownText.visibility = View.VISIBLE
-            // NÃO chamar startCountdownTimer() aqui pois ela RECALCULA o tempo!
-            // Apenas continuar com o timer existente
+            // Iniciar loop de atualização recursivo
             updateCountdown()
             Log.d("AutoRenewActivity", "Countdown restaurado com tempo exato: ${nextRenewalTime - System.currentTimeMillis()}ms restantes")
         }
@@ -604,14 +610,14 @@ class AutoRenewActivity : AppCompatActivity() {
     private fun executeRenewal(plate: String, duration: String) {
         Log.d("AutoRenewActivity", "Executing renewal - Plate: $plate, Duration: $duration")
         
-        // Verificar se houve renovação muito recente (evitar duplicatas)
+        // ✅ FIX #6: Verificar se houve renovação muito recente (evitar duplicatas)
         val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
         val lastRenewalTime = prefs.getLong("last_renewal_time", 0)
         val now = System.currentTimeMillis()
         val timeSinceLastRenewal = now - lastRenewalTime
         
-        // Se a última renovação foi há menos de 30 segundos, pular
-        if (timeSinceLastRenewal < 30000) {
+        // Unificado com Service: 60 segundos de proteção
+        if (timeSinceLastRenewal < 60000 && lastRenewalTime > 0) {
             Log.w("AutoRenewActivity", "Renewal attempted too soon (${timeSinceLastRenewal/1000}s ago), skipping")
             return
         }
@@ -976,8 +982,13 @@ class AutoRenewActivity : AppCompatActivity() {
         super.onDestroy()
         Log.d("AutoRenewActivity", "onDestroy() called, isRunning=$isRunning, isActiveSessionRunning=$isActiveSessionRunning")
         
-        // ✅ Clear flag estático quando activity é destruída
-        isActiveSessionRunning = false
+        // ✅ FIX #1: Só zerar flag se sessão NÃO está rodando (evita race condition)
+        if (!isRunning) {
+            isActiveSessionRunning = false
+            Log.d("AutoRenewActivity", "Session not running, clearing static flag")
+        } else {
+            Log.d("AutoRenewActivity", "Session still running, preserving static flag")
+        }
         
         // ✅ Liberar recursos de tela
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -1038,8 +1049,13 @@ class AutoRenewActivity : AppCompatActivity() {
         versionText = findViewById(R.id.versionText)
         versionText.text = "v\${BuildConfig.VERSION_NAME}"
         
-        // Reconfigurar WebView
-        setupAutomationWebView()
+        // ✅ FIX #7: Não recriar WebView se renovação em andamento
+        if (automationManager == null || !isRunning) {
+            setupAutomationWebView()
+            Log.d("AutoRenewActivity", "WebView recreated (no active renewal)")
+        } else {
+            Log.d("AutoRenewActivity", "Preserving WebView (renewal in progress)")
+        }
         
         // Reconfigurar spinners
         setupSpinners()
@@ -1053,12 +1069,17 @@ class AutoRenewActivity : AppCompatActivity() {
         // Reconfigurar license plate input
         setupLicensePlateInput()
         
-        // Re-registrar BroadcastReceiver
+        // ✅ FIX #4: Re-registrar BroadcastReceiver com melhor gestão
+        // Garantir que não está registrado antes de registrar novamente
+        var wasRegistered = false
         try {
             unregisterReceiver(renewalBroadcastReceiver)
-        } catch (e: Exception) {
-            // Ignorar se já não estava registrado
+            wasRegistered = true
+            Log.d("AutoRenewActivity", "BroadcastReceiver unregistered in onConfigurationChanged")
+        } catch (e: IllegalArgumentException) {
+            Log.d("AutoRenewActivity", "BroadcastReceiver was not registered")
         }
+        
         val filter = IntentFilter().apply {
             addAction("RENEWAL_START")
             addAction("RENEWAL_UPDATE")
@@ -1068,6 +1089,7 @@ class AutoRenewActivity : AppCompatActivity() {
         } else {
             registerReceiver(renewalBroadcastReceiver, filter)
         }
+        Log.d("AutoRenewActivity", "BroadcastReceiver re-registered in onConfigurationChanged")
         
         // Restaurar UI ao estado atual (de memória, não SharedPreferences)
         restoreUIFromMemory()

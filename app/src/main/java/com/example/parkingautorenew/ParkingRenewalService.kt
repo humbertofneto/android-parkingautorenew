@@ -133,6 +133,20 @@ class ParkingRenewalService : Service() {
     }
     
     private fun setupWebView() {
+        // ✅ FIX #5: Destruir WebView antigo antes de criar novo (prevenir memory leak)
+        try {
+            if (::webView.isInitialized) {
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                webView.clearHistory()
+                webView.clearCache(true)
+                webView.destroy()
+                Log.d(TAG, "Previous WebView destroyed to prevent memory leak")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error destroying previous WebView: ${e.message}")
+        }
+        
         webView = WebView(applicationContext)
         
         webView.settings.apply {
@@ -141,7 +155,7 @@ class ParkingRenewalService : Service() {
             cacheMode = WebSettings.LOAD_DEFAULT
         }
         
-        Log.d(TAG, "WebView created for new renewal")
+        Log.d(TAG, "New WebView created for renewal")
     }
     
     private fun startAutoRenew() {
