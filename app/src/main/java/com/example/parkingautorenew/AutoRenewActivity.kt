@@ -369,11 +369,44 @@ class AutoRenewActivity : AppCompatActivity() {
         durationAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         parkingDurationSpinner.adapter = durationAdapter
 
-        // Renewal Frequency Spinner
-        val frequencyOptions = arrayOf("5 min (test)", "30 min", "1 hour", "1:30 hour", "2 hour")
+        // Configurar listener para atualizar opções de frequência dinamicamente
+        parkingDurationSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selectedDuration = parent?.getItemAtPosition(position).toString()
+                updateRenewalFrequencyOptions(selectedDuration)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+        }
+        
+        // Inicializar com as opções baseadas na seleção padrão
+        updateRenewalFrequencyOptions("1 Hour")
+    }
+    
+    private fun updateRenewalFrequencyOptions(parkingDuration: String) {
+        Log.d("AutoRenewActivity", "Updating renewal frequency options for: $parkingDuration")
+        
+        // Filtrar opções baseado na duração do estacionamento
+        val frequencyOptions = when (parkingDuration) {
+            "1 Hour" -> arrayOf("5 min (test)", "30 min", "1 hour")
+            "2 Hour" -> arrayOf("5 min (test)", "30 min", "1 hour", "1:30 hour", "1:45 hour", "2 hour")
+            else -> arrayOf("5 min (test)", "30 min", "1 hour")
+        }
+        
+        // Salvar seleção atual se existir
+        val currentSelection = renewalFrequencySpinner.selectedItem?.toString()
+        
+        // Atualizar adapter
         val frequencyAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, frequencyOptions)
         frequencyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         renewalFrequencySpinner.adapter = frequencyAdapter
+        
+        // Tentar restaurar seleção anterior se ainda válida
+        val newPosition = frequencyOptions.indexOf(currentSelection)
+        if (newPosition >= 0) {
+            renewalFrequencySpinner.setSelection(newPosition)
+        }
+        
+        Log.d("AutoRenewActivity", "Frequency options updated: ${frequencyOptions.joinToString(", ")}")
     }
 
     private fun setupEmailCheckbox() {
@@ -558,6 +591,7 @@ class AutoRenewActivity : AppCompatActivity() {
             "30 min" -> Pair(30, TimeUnit.MINUTES)
             "1 hour" -> Pair(1, TimeUnit.HOURS)
             "1:30 hour" -> Pair(90, TimeUnit.MINUTES)
+            "1:45 hour" -> Pair(105, TimeUnit.MINUTES)
             "2 hour" -> Pair(2, TimeUnit.HOURS)
             else -> Pair(1, TimeUnit.HOURS)
         }
@@ -659,6 +693,7 @@ class AutoRenewActivity : AppCompatActivity() {
             "30 min" -> 30 * 60 * 1000L
             "1 hour" -> 60 * 60 * 1000L
             "1:30 hour" -> 90 * 60 * 1000L
+            "1:45 hour" -> 105 * 60 * 1000L
             "2 hour" -> 2 * 60 * 60 * 1000L
             else -> 60 * 60 * 1000L
         }

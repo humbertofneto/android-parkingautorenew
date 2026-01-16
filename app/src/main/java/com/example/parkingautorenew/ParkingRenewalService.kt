@@ -283,6 +283,7 @@ class ParkingRenewalService : Service() {
             "30 min" -> 30 * 60 * 1000L
             "1 hour" -> 60 * 60 * 1000L
             "1:30 hour" -> 90 * 60 * 1000L
+            "1:45 hour" -> 105 * 60 * 1000L
             "2 hour" -> 2 * 60 * 60 * 1000L
             else -> 60 * 60 * 1000L
         }
