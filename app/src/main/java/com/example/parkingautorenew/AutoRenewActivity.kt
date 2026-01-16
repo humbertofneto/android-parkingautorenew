@@ -475,22 +475,27 @@ class AutoRenewActivity : AppCompatActivity() {
         exitButton.setOnClickListener {
             Log.d("AutoRenewActivity", "Exit button clicked")
             
-            // Parar serviço se estiver rodando
-            if (isRunning) {
-                val serviceIntent = Intent(this, ParkingRenewalService::class.java)
-                serviceIntent.action = "STOP_AUTO_RENEW"
-                startService(serviceIntent)
+            // ✅ FIX #15: Adicionar confirmação antes de limpar dados
+            val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+            builder.setTitle("Exit Application")
+            builder.setMessage("This will stop all renewals and clear all data. Are you sure?")
+            builder.setPositiveButton("Yes, Exit") { _, _ ->
+                // Parar serviço se estiver rodando
+                if (isRunning) {
+                    val serviceIntent = Intent(this, ParkingRenewalService::class.java)
+                    serviceIntent.action = "STOP_AUTO_RENEW"
+                    startService(serviceIntent)
+                }
+                
+                // Zerar todos os dados e contadores
+                val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+                
+                // Fechar aplicação completamente
+                finishAffinity()
             }
-            
-            // Zerar todos os dados e contadores
-            val prefs = getSharedPreferences("parking_prefs", Context.MODE_PRIVATE)
-            prefs.edit().clear().apply()
-            
-            // Fechar aplicação completamente (remove da task stack)
-            finishAffinity()
-            // Alternativa mais agressiva se necessário:
-            // finishAndRemoveTask()
-            // System.exit(0)
+            builder.setNegativeButton("Cancel", null)
+            builder.show()
         }
     }
 

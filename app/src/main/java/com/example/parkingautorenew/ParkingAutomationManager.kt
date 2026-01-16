@@ -206,7 +206,8 @@ class ParkingAutomationManager(
         
         currentPage = pageNumber
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        // ✅ FIX #17: Rastrear callback antes de agendar
+        val callback = Runnable {
             // Double-check se ainda estamos executando
             if (!successCalled && isExecuting) {
                 when (currentPage) {
@@ -224,7 +225,12 @@ class ParkingAutomationManager(
             } else {
                 Log.d(TAG, "Skipping page handler - automation already complete")
             }
-        }, STEP_DELAY)
+        }
+        
+        synchronized(pendingCallbacks) {
+            pendingCallbacks.add(callback)
+        }
+        mainHandler.postDelayed(callback, STEP_DELAY)
     }
 
     private fun handlePage1() {
@@ -586,6 +592,23 @@ class ParkingAutomationManager(
         }
     }
     
+    private fun validateAndCompleteAutomation(confirmationDetails: ConfirmationDetails) {
+        // ✅ FIX #16: Validar dados essenciais antes de considerar sucesso
+        val hasValidConfirmation = confirmationDetails.confirmationNumber != "N/A" && 
+                                   confirmationDetails.confirmationNumber.isNotEmpty()
+        val hasValidExpiry = confirmationDetails.expiryTime != "N/A" && 
+                            confirmationDetails.expiryTime.isNotEmpty()
+        
+        if (!hasValidConfirmation || !hasValidExpiry) {
+            Log.e(TAG, "Invalid confirmation data - treating as error")
+            Log.e(TAG, "Confirmation: ${confirmationDetails.confirmationNumber}, Expiry: ${confirmationDetails.expiryTime}")
+            onError("Failed to extract confirmation data from page")
+        } else {
+            Log.d(TAG, "Valid confirmation data - proceeding with success")
+            completeAutomation(confirmationDetails)
+        }
+    }
+    
     private fun sendEmailAndClickDone(email: String, confirmationDetails: ConfirmationDetails) {
         val emailScript = """
             (function(){
@@ -666,7 +689,7 @@ class ParkingAutomationManager(
             // Aguardar tempo suficiente para completar todo o processo
             // 500ms + 10s polling + 3s após SEND = até 13.5s
             Handler(Looper.getMainLooper()).postDelayed({
-                completeAutomation(confirmationDetails)
+                validateAndCompleteAutomation(confirmationDetails)
             }, 15000)
         }
     }
@@ -692,7 +715,7 @@ class ParkingAutomationManager(
         Log.d(TAG, "Executing Page 5 click DONE script")
         webView.evaluateJavascript(clickScript) { result ->
             Log.d(TAG, "Click DONE script result: $result")
-            completeAutomation(confirmationDetails)
+            validateAndCompleteAutomation(confirmationDetails)
         }
     }
     

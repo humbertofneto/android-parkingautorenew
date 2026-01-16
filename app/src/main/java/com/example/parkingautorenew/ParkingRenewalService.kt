@@ -39,6 +39,7 @@ class ParkingRenewalService : Service() {
     private var isRunning = false
     private var nextRenewalTimeMillis: Long = 0
     private var wakeLock: PowerManager.WakeLock? = null
+    @Volatile private var shouldUpdateNotification = false  // ✅ FIX #18: Flag de controle
     
     override fun onCreate() {
         super.onCreate()
@@ -170,6 +171,7 @@ class ParkingRenewalService : Service() {
         }
         
         isRunning = true
+        shouldUpdateNotification = true  // ✅ FIX #18: Ativar updates
         
         // Criar notificação de foreground
         val notification = createNotification("Auto-Renew ativo", "Inicializando...")
@@ -380,8 +382,12 @@ class ParkingRenewalService : Service() {
         Log.d(TAG, "Stopping auto-renew")
         
         isRunning = false
+        shouldUpdateNotification = false  // ✅ FIX #18: Desativar updates
+        
+        // ✅ FIX #18: Limpar handlers ANTES de verificar isRunning
         renewalHandler.removeCallbacksAndMessages(null)
         notificationUpdateHandler.removeCallbacksAndMessages(null)
+        Log.d(TAG, "All handlers cleared")
         
         // Cancel any pending AlarmManager alarms
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -439,10 +445,13 @@ class ParkingRenewalService : Service() {
     private fun startNotificationUpdates() {
         notificationUpdateHandler.post(object : Runnable {
             override fun run() {
-                if (isRunning) {
+                // ✅ FIX #18: Verificar flag adicional além de isRunning
+                if (isRunning && shouldUpdateNotification) {
                     updateNotificationWithCountdown()
                     // Atualizar a cada 30 segundos
                     notificationUpdateHandler.postDelayed(this, 30000)
+                } else {
+                    Log.d(TAG, "Notification update loop stopped")
                 }
             }
         })

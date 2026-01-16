@@ -53,12 +53,17 @@ class MainActivity : AppCompatActivity() {
 
         exitBtn.setOnClickListener {
             Log.d("MainActivity", "EXIT clicked - Stopping service and killing app process")
-            // Parar o serviço de renovação
+            // ✅ FIX #14: Enviar action correta para parar o Service
             val stopServiceIntent = Intent(this, ParkingRenewalService::class.java)
-            stopService(stopServiceIntent)
-            // Matar o processo completamente
-            Log.d("MainActivity", "App process killed - exitProcess()")
-            exitProcess(0)
+            stopServiceIntent.action = "STOP_AUTO_RENEW"
+            startService(stopServiceIntent)
+            
+            // Aguardar um pouco para Service processar
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                // Matar o processo completamente
+                Log.d("MainActivity", "App process killed - exitProcess()")
+                exitProcess(0)
+            }, 500)
         }
 
         debugIcon.setOnClickListener {
