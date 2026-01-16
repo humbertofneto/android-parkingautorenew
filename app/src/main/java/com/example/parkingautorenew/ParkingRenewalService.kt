@@ -152,6 +152,7 @@ class ParkingRenewalService : Service() {
     }
     
     private fun setupWebView() {
+    private fun setupWebView() {
         // ✅ FIX #5: Destruir WebView antigo antes de criar novo (prevenir memory leak)
         try {
             if (::webView.isInitialized) {
@@ -166,7 +167,20 @@ class ParkingRenewalService : Service() {
             Log.w(TAG, "Error destroying previous WebView: ${e.message}")
         }
         
-        webView = WebView(applicationContext), re-scheduling alarms as safety measure")
+        webView = WebView(applicationContext)
+        
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            cacheMode = WebSettings.LOAD_DEFAULT
+        }
+        
+        Log.d(TAG, "New WebView created for renewal")
+    }
+    
+    private fun startAutoRenew() {
+        if (isRunning) {
+            Log.w(TAG, "Auto-renew already running, re-scheduling alarms as safety measure")
             // ✅ FIX #30: Mesmo se já running, reagendar alarmes (podem ter sido perdidos)
             scheduleNextRenewal()
             return
@@ -184,20 +198,7 @@ class ParkingRenewalService : Service() {
         // Iniciar atualização periódica da notificação
         startNotificationUpdates()
         
-        // ✅ FIX #30: Sempre agendar alarmes ao iniciar (garante restauração após kill
-        shouldUpdateNotification = true  // ✅ FIX #18: Ativar updates
-        
-        // Criar notificação de foreground
-        val notification = createNotification("Auto-Renew ativo", "Inicializando...")
-        startForeground(NOTIFICATION_ID, notification)
-        
-        Log.d(TAG, "Auto-renew started in foreground")
-        
-        // Iniciar atualização periódica da notificação
-        startNotificationUpdates()
-        
-        // Agendar próximas renovações
-        // (Activity executará a primeira renovação)
+        // ✅ FIX #30: Sempre agendar alarmes ao iniciar (garante restauração após kill)
         scheduleNextRenewal()
     }
     
