@@ -2,7 +2,7 @@
 
 App robusto que automatiza renovações de estacionamento com suporte a sessões persistentes e interface resiliente.
 
-**Versão:** v1.0.7 (versionCode 8)
+**Versão:** v1.0.10 (versionCode 11)
 
 ## O que está implementado
 
